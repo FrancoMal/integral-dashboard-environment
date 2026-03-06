@@ -1,92 +1,97 @@
-# AI Coding Environment - Proyecto Template
+# AI Coding Environment Dashboard
 
-## Descripción
+Un template completo para crear ambientes de desarrollo con Docker. Ideal para ofrecer como servicio o para tener tu propio entorno de coding configurado.
 
-**Producto:** Template/Docker pre-configurado para usuarios que quieren usar Claude Code/OpenCode sin saber programación.
+## ✨ Características
 
-El usuario compra/alquila el ambiente ya configurado con:
-- Base de datos
-- Auth
-- Claude Code pre-configurado
-- Todo listo para usar
+- **Dashboard web** con login y gestión de usuarios
+- **API REST** con autenticación JWT (.NET 8)
+- **Base de datos** SQL Server Express
+- **Terminal web** integrada (Ubuntu con Claude Code, Node.js, Python, FFmpeg)
+- **Nginx** como reverse proxy
+- **100% Docker** - fácil de desplegar
 
-## Stack Tecnológico
+## 🛠️ Stack
 
-### Core
-- **.NET** - Backend/API
-- **SQL Server Express** - Base de datos
-- **Docker + Docker Compose** - Contenedores
+| Componente | Tecnología |
+|------------|------------|
+| Backend | .NET 8 + C# + Entity Framework Core |
+| Base de datos | SQL Server 2022 Express |
+| Frontend | HTML + CSS + JavaScript (vanilla) |
+| Servidor web | Nginx |
+| Workspace | Ubuntu 22.04 + Claude Code + Node.js 20 + Python 3 |
+| Terminal web | ttyd |
+| Contenedores | Docker + Docker Compose |
 
-### Frontend
-- **Refine** o **Retool** - Dashboard admin
-- O simple HTML/Vue con Nginx
+## 🚀 Cómo usarlo
 
-### Herramientas Preinstaladas
-- Claude Code / OpenCode
-- Git
-- Node.js
-- Python
-- FFmpeg
-
-### Extras
-- Web Terminal: Gotty o Wetty
-- Auth: Authelia o similar
-
-## Arquitectura
-
-```
-┌─────────────────────────────────────┐
-│         VPS / VM                    │
-│  ┌─────────────────────────────┐    │
-│  │   Docker Compose           │    │
-│  │  ┌─────────┐ ┌─────────┐  │    │
-│  │  │ .NET    │ │ SQL     │  │    │
-│  │  │ API     │ │ Server  │  │    │
-│  │  └─────────┘ └─────────┘  │    │
-│  │  ┌─────────┐ ┌─────────┐  │    │
-│  │  │ Claude  │ │ Nginx   │  │    │
-│  │  │ Code   │ │ Proxy   │  │    │
-│  │  └─────────┘ └─────────┘  │    │
-│  └─────────────────────────────┘    │
-└─────────────────────────────────────┘
-```
-
-## Uso
-
-1. Comprar VPS
-2. Instalar Docker
-3. Ejecutar docker-compose up
-4. Listo - ambiente funcionando
-
-## Estado Actual
-
-- [x] VM Ubuntu configurada (100.104.207.12)
-- [x] Docker instalado
-- [x] Estructura básica creada
-  - docker-compose.yml
-  - web/index.html
-  - db/init.sql
-- [ ] API .NET (en progreso)
-- [ ] Probar docker-compose up
-
-## Cómo Ejecutar
+### 1. Clonar el proyecto
 
 ```bash
+git clone https://github.com/FrancoMal/ai-coding-environment.git
 cd ai-coding-environment
-docker-compose up --build
 ```
 
-Acceder a:
-- Web: http://localhost:8080
-- API: http://localhost:5000
-- SQL Server: localhost:1433
+### 2. Configurar variables de entorno
 
-## Ubicación Proyecto
+```bash
+cp .env.example .env
+```
 
-`C:\Users\Usuario\clawd\projects\ai-coding-environment`
+### 3. Levantar todo
 
-## Notas
+```bash
+docker compose up --build -d
+```
 
-- El AGENTS.md debe ser amigable para usuarios no técnicos
-- El usuario final no necesita saber CLI
-- Todo accesible via web dashboard
+### 4. Acceder
+
+- **Dashboard:** http://localhost:8080
+- **Usuario:** admin
+- **Contraseña:** admin123
+
+## 📁 Estructura
+
+```
+ai-coding-environment/
+├── docker-compose.yml     # Orquestación de servicios
+├── .env.example          # Variables de entorno
+├── src/Api/              # Backend .NET 8
+│   ├── Controllers/      # Endpoints API
+│   ├── Models/           # Modelos de datos
+│   ├── Services/         # Lógica de negocio
+│   └── Data/             # Entity Framework
+├── web/                  # Frontend
+│   ├── index.html        # Dashboard
+│   ├── login.html        # Login
+│   ├── css/              # Estilos
+│   └── js/               # JavaScript
+├── workspace/            # Container de desarrollo
+├── db/                  # Scripts de base de datos
+└── nginx/               # Configuración Nginx
+```
+
+## 🤖 Para agentes de IA
+
+Este proyecto incluye `AGENTS.md` con instrucciones detalladas para que cualquier agente de IA (Claude Code, OpenCode, etc.) pueda trabajar en él sin necesidad de explicación adicional.
+
+## 📝 Credenciales por defecto
+
+| Servicio | Usuario | Contraseña |
+|----------|---------|------------|
+| Dashboard | admin | admin123 |
+| SQL Server | sa | YourStrong@Passw0rd |
+
+**⚠️ Cambiar contraseñas en producción**
+
+## 🌐 Expansión
+
+El template está diseñado para ser expandido facilmente:
+
+- **Nueva página:** agregar en `web/js/dashboard.js`
+- **Nueva tabla:** crear modelo C# + agregar en `db/init.sql`
+- **Nuevo servicio Docker:** agregar en `docker-compose.yml`
+
+## 📄 Licencia
+
+MIT
