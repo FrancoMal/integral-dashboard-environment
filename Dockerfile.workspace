@@ -24,21 +24,35 @@ RUN apt-get update && apt-get install -y \
     gnupg \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Docker CLI + Docker Compose plugin
+RUN install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu jammy stable" > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y docker-ce-cli docker-compose-plugin \
+    && rm -rf /var/lib/apt/lists/*
+
 # Install Node.js 20 LTS
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Claude Code globally
-RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || echo "Claude Code will need to be installed with API key"
+# Install AI coding tools
+RUN npm install -g @anthropic-ai/claude-code 2>/dev/null || echo "Claude Code install failed" \
+    && npm install -g opencode-ai 2>/dev/null || echo "OpenCode install failed" \
+    && npm install -g @openai/codex 2>/dev/null || echo "Codex CLI install failed" \
+    && npm install -g @google/gemini-cli 2>/dev/null || echo "Gemini CLI install failed"
 
 # Install ttyd (web terminal)
 RUN wget -q https://github.com/tsl0922/ttyd/releases/download/1.7.7/ttyd.x86_64 -O /usr/local/bin/ttyd \
     && chmod +x /usr/local/bin/ttyd
 
-# Create developer user with sudo
+# Create developer user with sudo and docker group
 RUN useradd -m -s /bin/bash developer \
     && echo "developer ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers \
+    && groupadd -f docker \
+    && usermod -aG docker developer \
     && mkdir -p /home/developer/workspace \
     && chown -R developer:developer /home/developer
 
@@ -49,18 +63,23 @@ echo "  ===================================="\n\
 echo "  Welcome to AI Coding Environment"\n\
 echo "  ===================================="\n\
 echo ""\n\
-echo "  Tools disponibles:"\n\
+echo "  Herramientas disponibles:"\n\
 echo "    - git          $(git --version 2>/dev/null | cut -d\" \" -f3)"\n\
 echo "    - node         $(node --version 2>/dev/null)"\n\
 echo "    - npm          $(npm --version 2>/dev/null)"\n\
 echo "    - python3      $(python3 --version 2>/dev/null | cut -d\" \" -f2)"\n\
-echo "    - pip3         $(pip3 --version 2>/dev/null | cut -d\" \" -f2)"\n\
+echo "    - docker       $(docker --version 2>/dev/null | cut -d\" \" -f3 | tr -d \",\")"\n\
 echo "    - ffmpeg       $(ffmpeg -version 2>/dev/null | head -1 | cut -d\" \" -f3)"\n\
-echo "    - claude       (Claude Code CLI)"\n\
 echo ""\n\
-echo "  Para usar Claude Code:"\n\
-echo "    export ANTHROPIC_API_KEY=tu-api-key"\n\
-echo "    claude"\n\
+echo "  Agentes AI:"\n\
+echo "    - claude       (Claude Code - Anthropic)"\n\
+echo "    - codex        (Codex CLI - OpenAI)"\n\
+echo "    - gemini       (Gemini CLI - Google)"\n\
+echo "    - opencode     (OpenCode AI)"\n\
+echo ""\n\
+echo "  Para levantar los servicios:"\n\
+echo "    cd ~/workspace"\n\
+echo "    docker compose -f docker-compose.services.yml up -d"\n\
 echo ""\n\
 echo "  Directorio de trabajo: ~/workspace"\n\
 echo "  ===================================="\n\
