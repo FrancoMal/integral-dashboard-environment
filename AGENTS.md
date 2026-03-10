@@ -45,6 +45,17 @@ No digas "listo, funciona" sin haber verificado. Siempre:
 - Si tocaste el frontend: recarga el browser y verifica visualmente
 - Si tocaste Docker: hace `docker-compose up --build -d` y verifica que los containers esten corriendo
 
+### 2.1 Validacion obligatoria de lo que ve el navegador
+
+Siempre hacer estos dos pasos antes de confirmar que un cambio web quedo aplicado:
+
+1. **Rebuild real del servicio web** (no confiar en archivos locales viejos)
+   - `docker compose up --build -d web`
+2. **Chequeo adentro del contenedor** (confirmar lo que realmente sirve Nginx)
+   - ejemplo: `docker compose exec web sh -lc "ls -la /usr/share/nginx/html && grep -n \"texto-clave\" /usr/share/nginx/html/index.html || true"`
+
+Si el archivo local dice una cosa pero el contenedor sirve otra, prevalece lo del contenedor.
+
 ### 3. No romper lo que ya funciona
 
 Antes de modificar un archivo, leelo primero. Entende que hace antes de cambiarlo. Si tu cambio puede afectar otras partes, revisalas tambien.

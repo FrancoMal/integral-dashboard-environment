@@ -162,6 +162,24 @@ if ! docker info &>/dev/null; then
     fi
 fi
 
+# Verificar Docker Compose plugin
+if docker compose version &>/dev/null; then
+    skip "Docker Compose $(docker compose version --short 2>/dev/null || echo 'plugin')"
+else
+    if [ "$OS" = "ubuntu" ] || [ "$OS" = "debian" ]; then
+        install_apt docker-compose-plugin
+        if docker compose version &>/dev/null; then
+            ok "Docker Compose instalado"
+        else
+            fail "No se pudo instalar Docker Compose"
+            exit 1
+        fi
+    elif [ "$OS" = "macos" ]; then
+        fail "Docker Compose no disponible. Verifica Docker Desktop actualizado."
+        exit 1
+    fi
+fi
+
 # ===========================================================
 # 5. Herramientas AI
 # ===========================================================
