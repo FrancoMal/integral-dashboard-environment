@@ -43,6 +43,7 @@ builder.Services.AddAuthorization();
 // Services
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddSingleton<GitHubService>();
+builder.Services.AddSingleton<ClaudeAnalyzerService>();
 
 // CORS
 builder.Services.AddCors(options =>

@@ -14,11 +14,13 @@ public class GitHubController : ControllerBase
 {
     private readonly GitHubService _github;
     private readonly AppDbContext _db;
+    private readonly ClaudeAnalyzerService _claude;
 
-    public GitHubController(GitHubService github, AppDbContext db)
+    public GitHubController(GitHubService github, AppDbContext db, ClaudeAnalyzerService claude)
     {
         _github = github;
         _db = db;
+        _claude = claude;
     }
 
     [HttpGet("repos")]
@@ -458,6 +460,47 @@ public class GitHubController : ControllerBase
                 "seguridad", 3));
         }
 
+        // ---- Analisis profundo con Claude AI ----
+        bool claudeUsed = false;
+        if (await _claude.IsAvailableAsync())
+        {
+            try
+            {
+                // Seleccionar archivos clave para revision de codigo
+                var keyFiles = SelectKeyFiles(filePaths, project.Language);
+                var codeFiles = new List<CodeFile>();
+
+                foreach (var filePath in keyFiles.Take(12))
+                {
+                    var content = await _github.GetFileContentAsync(project.FullName, filePath);
+                    if (!string.IsNullOrEmpty(content))
+                        codeFiles.Add(new CodeFile { Path = filePath, Content = content });
+                }
+
+                if (codeFiles.Count > 0)
+                {
+                    var claudeRecs = await _claude.AnalyzeCodeAsync(
+                        project.FullName, project.Language, codeFiles);
+
+                    foreach (var cr in claudeRecs)
+                    {
+                        candidates.Add(new(
+                            cr.Title,
+                            cr.Notes,
+                            cr.Category,
+                            Math.Clamp(cr.Priority, 1, 3)));
+                    }
+
+                    claudeUsed = true;
+                    summaryParts.Add($"Analisis IA sobre {codeFiles.Count} archivos clave");
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[AnalyzeProject] Claude analysis error: {ex.Message}");
+            }
+        }
+
         // Guardar el analisis en historial
         var analysis = new ProjectAnalysis
         {
@@ -509,7 +552,8 @@ public class GitHubController : ControllerBase
             summary = analysis.Summary,
             detectedStack = analysis.DetectedStack,
             detectedTools = analysis.DetectedTools,
-            filesAnalyzed = analysis.FilesAnalyzed
+            filesAnalyzed = analysis.FilesAnalyzed,
+            claudeAnalysis = claudeUsed
         });
     }
 
@@ -586,6 +630,82 @@ public class GitHubController : ControllerBase
             return BadRequest(new { message = "No se pudo autenticar con GitHub. Verifica el token." });
 
         return Ok(new { login });
+    }
+
+    private static List<string> SelectKeyFiles(List<string> allFiles, string? language)
+    {
+        var selected = new List<string>();
+
+        // Entry points and configs (always important)
+        var entryPoints = new[]
+        {
+            "Program.cs", "Startup.cs", "Program.fs",
+            "index.js", "index.ts", "server.js", "server.ts", "app.js", "app.ts",
+            "main.py", "app.py", "manage.py",
+            "main.go", "main.rs", "lib.rs",
+            "index.php"
+        };
+
+        var configFiles = new[]
+        {
+            "package.json", "tsconfig.json", "docker-compose.yml", "docker-compose.yaml",
+            "Dockerfile", "Makefile", "Cargo.toml", "go.mod",
+            "requirements.txt", "pyproject.toml", "composer.json",
+            ".env.example"
+        };
+
+        // Add entry points found
+        foreach (var ep in entryPoints)
+        {
+            var matches = allFiles.Where(f => f.EndsWith($"/{ep}") || f == ep).ToList();
+            selected.AddRange(matches.Take(2));
+        }
+
+        // Add configs found
+        foreach (var cf in configFiles)
+        {
+            if (allFiles.Contains(cf))
+                selected.Add(cf);
+        }
+
+        // Add source files based on language
+        var extensions = (language?.ToLower()) switch
+        {
+            "c#" => new[] { ".cs" },
+            "javascript" => new[] { ".js", ".jsx" },
+            "typescript" => new[] { ".ts", ".tsx" },
+            "python" => new[] { ".py" },
+            "go" => new[] { ".go" },
+            "rust" => new[] { ".rs" },
+            "java" => new[] { ".java" },
+            "php" => new[] { ".php" },
+            "ruby" => new[] { ".rb" },
+            _ => Array.Empty<string>()
+        };
+
+        if (extensions.Length > 0)
+        {
+            // Prioritize: controllers, services, models, routes, handlers
+            var priorityDirs = new[] { "controller", "service", "model", "route", "handler", "middleware", "api", "src" };
+            var sourceFiles = allFiles
+                .Where(f => extensions.Any(ext => f.EndsWith(ext, StringComparison.OrdinalIgnoreCase)))
+                .Where(f => !f.Contains("/test", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains("/spec", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains("__tests__", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains("/bin/", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains("/obj/", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains("/node_modules/", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains(".Designer.", StringComparison.OrdinalIgnoreCase)
+                         && !f.Contains(".g.", StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(f => priorityDirs.Any(d => f.Contains(d, StringComparison.OrdinalIgnoreCase)) ? 1 : 0)
+                .ThenBy(f => f.Count(c => c == '/'))
+                .ToList();
+
+            var remaining = 12 - selected.Count;
+            selected.AddRange(sourceFiles.Take(remaining));
+        }
+
+        return selected.Distinct().Take(12).ToList();
     }
 
     private sealed record ProjectRecommendationSeed(string Title, string Notes, string Category, int Priority);

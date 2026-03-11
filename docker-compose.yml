@@ -44,6 +44,7 @@ services:
       - ASPNETCORE_URLS=http://+:80
       - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=AIcoding;User Id=sa;Password=YourStrong@Passw0rd;TrustServerCertificate=True;
       - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - CLAUDE_ANALYZER_URL=http://claude-analyzer:4500
     volumes:
       - /proc:/host_proc:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -52,6 +53,19 @@ services:
     depends_on:
       sqlserver:
         condition: service_healthy
+    restart: unless-stopped
+
+  # --- Claude Analyzer (sidecar para analisis de codigo con IA) ---
+  claude-analyzer:
+    build:
+      context: ./src/claude-analyzer
+      dockerfile: Dockerfile
+    container_name: aicoding-claude-analyzer
+    volumes:
+      - /root/.claude:/root/.claude:ro
+      - /root/.claude.json:/root/.claude.json:ro
+    networks:
+      - aicoding-net
     restart: unless-stopped
 
   # --- Frontend (Blazor WASM + Nginx) ---
