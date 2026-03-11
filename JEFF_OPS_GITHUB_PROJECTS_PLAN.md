@@ -225,18 +225,22 @@ La fase base no quedó en humo: quedó validada funcionalmente.
 Subir de un análisis base a un análisis más serio de ingeniería.
 
 ### Estado
-🟡 **Pendiente**
+✅ **Hecha**
 
-### Qué debería incluir
-- Leer árbol del repo
-- Leer archivos clave
-- Detectar stack real
-- Detectar framework y tooling
-- Detectar convenciones del proyecto
-- Mejorar calidad y especificidad de recomendaciones
+### Qué quedó implementado
+- Lectura del árbol completo del repo via GitHub Trees API
+- Detección de lenguajes con porcentajes via GitHub Languages API
+- Detección de frameworks y package managers (npm, .NET, Cargo, Go, Python, PHP, Ruby)
+- Detección de CI/CD (GitHub Actions, GitLab CI, Jenkins, CircleCI)
+- Detección de Docker/Docker Compose
+- Detección de tests (directorios y archivos de test)
+- Verificación de archivos clave: LICENSE, .gitignore, .editorconfig, linter configs, .env.example, CONTRIBUTING, CHANGELOG
+- Recomendaciones específicas al stack detectado (ej: "Configurar CI con GitHub Actions para .NET")
+- Recomendaciones de seguridad (ej: .env sin .gitignore)
+- Resumen con conteo de archivos, stack y herramientas detectadas
 
-### Resultado esperado
-Recomendaciones mucho más inteligentes y situadas al repo real.
+### Resultado visible
+Las recomendaciones son mucho más inteligentes, específicas y situadas al repo real.
 
 ---
 
@@ -246,17 +250,21 @@ Recomendaciones mucho más inteligentes y situadas al repo real.
 Persistir el paso del tiempo y no tratar cada análisis como si fuera el primero.
 
 ### Estado
-🟡 **Pendiente**
+✅ **Hecha**
 
-### Qué debería incluir
-- Historial por proyecto
-- Fecha de análisis
-- Estado del análisis
-- Qué recomendaciones aparecieron
-- Qué cambió entre análisis
+### Qué quedó implementado
+- Nueva tabla `ProjectAnalyses` con: fecha, resumen, stack detectado, herramientas, archivos analizados, recomendaciones generadas
+- Cada análisis se guarda automáticamente en el historial
+- Las recomendaciones se vinculan al análisis que las generó (campo `AnalysisId`)
+- Endpoint `GET /api/github/projects/{id}/analyses` para consultar historial
+- El detalle del proyecto incluye historial de análisis
+- Resumen del último análisis visible en la pestaña "Resumen" (stack, herramientas, archivos)
+- Nueva pestaña "Historial" con timeline visual de todos los análisis
+- Badge con cantidad de análisis en la pestaña
+- No duplica recomendaciones entre análisis sucesivos
 
-### Resultado esperado
-Poder ver evolución del proyecto y no solo una foto aislada.
+### Resultado visible
+Se puede ver la evolución del proyecto análisis a análisis, no solo una foto aislada.
 
 ---
 
@@ -313,8 +321,8 @@ El entorno ACP quedó más encaminado, pero **Claude CLI tenía auth vencida** y
 - ✅ Fase 8 — Validación funcional real
 
 ## Fases pendientes
-- 🟡 Fase 9 — Análisis profundo del repo/código
-- 🟡 Fase 10 — Historial de análisis
+- ✅ Fase 9 — Análisis profundo del repo/código
+- ✅ Fase 10 — Historial de análisis
 - 🟡 Fase 11 — Actividades / trazabilidad de JeffVps
 - 🔴 Fase 12 — Integración más fuerte con Claude Code / ACP / herramientas
 
