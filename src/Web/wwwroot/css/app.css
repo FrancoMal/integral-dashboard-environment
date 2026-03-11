@@ -314,7 +314,50 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
 .recommendation-tags { display: flex; align-items: center; gap: 0.35rem; flex-wrap: wrap; justify-content: flex-end; }
 .recommendation-tag { padding: 0.2rem 0.55rem; border-radius: 999px; background: var(--bg); color: var(--text-secondary); font-size: 0.72rem; font-weight: 600; text-transform: uppercase; }
 .recommendation-tag--priority { background: var(--warning-bg); color: var(--warning); }
+.recommendation-tag--p3 { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.recommendation-tag--p2 { background: var(--warning-bg); color: var(--warning); }
+.recommendation-tag--p1 { background: var(--info-bg); color: var(--info); }
 .recommendation-tag--done { background: var(--primary); color: #ffffff; }
+/* Category colors */
+.rec-cat--seguridad { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.rec-cat--calidad { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.rec-cat--devops { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+.rec-cat--documentacion { background: rgba(16, 185, 129, 0.12); color: #10b981; }
+.rec-cat--planning { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.rec-cat--seguimiento { background: rgba(20, 184, 166, 0.12); color: #14b8a6; }
+.rec-cat--bugs { background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+.rec-cat--performance { background: rgba(249, 115, 22, 0.12); color: #f97316; }
+.rec-cat--arquitectura { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
+.rec-cat--mantenibilidad { background: rgba(107, 114, 128, 0.12); color: #6b7280; }
+/* Category filters */
+.rec-filters { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.rec-filter-btn { padding: 0.3rem 0.7rem; border-radius: 999px; border: 1px solid var(--border); background: var(--card-bg); color: var(--text-secondary); font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all var(--transition); text-transform: capitalize; }
+.rec-filter-btn:hover { border-color: var(--primary); }
+.rec-filter-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.rec-filter-btn--seguridad.active { background: #ef4444; border-color: #ef4444; }
+.rec-filter-btn--calidad.active { background: #3b82f6; border-color: #3b82f6; }
+.rec-filter-btn--devops.active { background: #8b5cf6; border-color: #8b5cf6; }
+.rec-filter-btn--documentacion.active { background: #10b981; border-color: #10b981; }
+.rec-filter-btn--planning.active { background: #f59e0b; border-color: #f59e0b; }
+.rec-filter-btn--seguimiento.active { background: #14b8a6; border-color: #14b8a6; }
+.rec-filter-btn--bugs.active { background: #dc2626; border-color: #dc2626; }
+.rec-filter-btn--performance.active { background: #f97316; border-color: #f97316; }
+.rec-filter-btn--arquitectura.active { background: #6366f1; border-color: #6366f1; }
+.rec-filter-btn--mantenibilidad.active { background: #6b7280; border-color: #6b7280; }
+/* User notes */
+.recommendation-user-notes { margin-top: 0.5rem; }
+.note-display { font-size: 0.82rem; color: var(--text-primary); background: var(--bg); padding: 0.45rem 0.65rem; border-radius: var(--radius-sm); cursor: pointer; border: 1px dashed var(--border); line-height: 1.45; }
+.note-display:hover { border-color: var(--primary); }
+.note-label { font-weight: 600; color: var(--primary); font-size: 0.75rem; }
+.note-add-btn { background: none; border: 1px dashed var(--border); color: var(--text-muted); font-size: 0.78rem; padding: 0.3rem 0.6rem; border-radius: var(--radius-sm); cursor: pointer; transition: all var(--transition); }
+.note-add-btn:hover { border-color: var(--primary); color: var(--primary); }
+.note-edit-area { display: flex; flex-direction: column; gap: 0.4rem; }
+.note-textarea { width: 100%; padding: 0.5rem; border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 0.82rem; font-family: inherit; resize: vertical; background: var(--card-bg); color: var(--text-primary); }
+.note-textarea:focus { outline: none; border-color: var(--primary); }
+.note-edit-actions { display: flex; gap: 0.35rem; }
+.note-btn { padding: 0.25rem 0.6rem; border-radius: var(--radius-sm); font-size: 0.75rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border); }
+.note-btn--save { background: var(--primary); color: #fff; border-color: var(--primary); }
+.note-btn--cancel { background: var(--card-bg); color: var(--text-secondary); }
 .work-items-list { display: flex; flex-direction: column; gap: 0.6rem; }
 .work-item-card { background: var(--card-bg); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 0.75rem; box-shadow: var(--shadow-sm); }
 .work-item-title { font-weight: 600; color: var(--text-primary); font-size: 0.88rem; }

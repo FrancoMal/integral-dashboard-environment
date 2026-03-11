@@ -181,6 +181,7 @@ public class GitHubController : ControllerBase
                 r.Priority,
                 r.Selected,
                 r.AddedToBacklog,
+                r.UserNotes,
                 r.CreatedAt
             }),
             workItems = workItems.Select(w => new
@@ -578,6 +579,20 @@ public class GitHubController : ControllerBase
         }));
     }
 
+    [HttpPost("projects/{id}/recommendations/{recId}/notes")]
+    public async Task<IActionResult> UpdateRecommendationNotes(int id, int recId, [FromBody] UpdateNotesRequest request)
+    {
+        var recommendation = await _db.ProjectRecommendations
+            .FirstOrDefaultAsync(r => r.ProjectId == id && r.Id == recId);
+
+        if (recommendation == null)
+            return NotFound();
+
+        recommendation.UserNotes = request.UserNotes ?? string.Empty;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpPost("projects/{id}/recommendations/selection")]
     public async Task<IActionResult> UpdateRecommendationSelection(int id, [FromBody] RecommendationSelectionRequest request)
     {
@@ -720,4 +735,9 @@ public class RecommendationSelectionRequest
 {
     public int RecommendationId { get; set; }
     public bool Selected { get; set; }
+}
+
+public class UpdateNotesRequest
+{
+    public string? UserNotes { get; set; }
 }

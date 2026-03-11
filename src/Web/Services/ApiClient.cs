@@ -70,6 +70,11 @@ public class ApiClient
         return await PostAsync<AnalyzeProjectResultDto>($"/api/github/projects/{projectId}/analyze", new { });
     }
 
+    public async Task UpdateRecommendationNotesAsync(int projectId, int recommendationId, string userNotes)
+    {
+        await PostAsync<object>($"/api/github/projects/{projectId}/recommendations/{recommendationId}/notes", new { userNotes });
+    }
+
     public async Task UpdateRecommendationSelectionAsync(int projectId, int recommendationId, bool selected)
     {
         await PostAsync<object>($"/api/github/projects/{projectId}/recommendations/selection", new { recommendationId, selected });

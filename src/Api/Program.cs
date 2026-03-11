@@ -125,6 +125,8 @@ using (var migrateScope = app.Services.CreateScope())
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[Projects]') AND name = 'GitHubRepoId')
     ALTER TABLE [Projects] ADD [GitHubRepoId] BIGINT NOT NULL DEFAULT 0;
 
+-- (nullable fixes run separately below)
+
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[Projects]') AND name = 'FullName')
     ALTER TABLE [Projects] ADD [FullName] NVARCHAR(255) NOT NULL DEFAULT '';
 
@@ -205,6 +207,30 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[ProjectR
 
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[ProjectRecommendations]') AND name = 'AddedToBacklog')
     ALTER TABLE [ProjectRecommendations] ADD [AddedToBacklog] BIT NOT NULL DEFAULT 0;
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[ProjectRecommendations]') AND name = 'UserNotes')
+    ALTER TABLE [ProjectRecommendations] ADD [UserNotes] NVARCHAR(MAX) NOT NULL DEFAULT '';
+");
+
+    // Fix legacy NOT NULL constraints on Projects (drop default constraints first)
+    await migrateDb.Database.ExecuteSqlRawAsync(@"
+DECLARE @cn NVARCHAR(256)
+SELECT @cn = dc.name FROM sys.default_constraints dc
+JOIN sys.columns c ON dc.parent_column_id = c.column_id AND dc.parent_object_id = c.object_id
+WHERE c.name = 'Description' AND dc.parent_object_id = OBJECT_ID(N'[Projects]')
+IF @cn IS NOT NULL EXEC('ALTER TABLE [Projects] DROP CONSTRAINT ' + @cn)
+
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[Projects]') AND name = 'Description' AND is_nullable = 0)
+    ALTER TABLE [Projects] ALTER COLUMN [Description] NVARCHAR(MAX) NULL;
+
+SELECT @cn = NULL
+SELECT @cn = dc.name FROM sys.default_constraints dc
+JOIN sys.columns c ON dc.parent_column_id = c.column_id AND dc.parent_object_id = c.object_id
+WHERE c.name = 'Language' AND dc.parent_object_id = OBJECT_ID(N'[Projects]')
+IF @cn IS NOT NULL EXEC('ALTER TABLE [Projects] DROP CONSTRAINT ' + @cn)
+
+IF EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[Projects]') AND name = 'Language' AND is_nullable = 0)
+    ALTER TABLE [Projects] ALTER COLUMN [Language] NVARCHAR(100) NULL;
 ");
 }
 

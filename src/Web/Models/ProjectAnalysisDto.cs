@@ -9,6 +9,7 @@ public class ProjectRecommendationDto
     public int Priority { get; set; }
     public bool Selected { get; set; }
     public bool AddedToBacklog { get; set; }
+    public string UserNotes { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
 }
 

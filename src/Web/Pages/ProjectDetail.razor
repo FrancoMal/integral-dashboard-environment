@@ -256,7 +256,7 @@ else
                     <div class="card-header work-card-header">
                         <div>
                             <h3>Recomendaciones del analisis</h3>
-                            <p class="work-card-subtitle">Selecciona las que quieras pasar al backlog.</p>
+                            <p class="work-card-subtitle">Selecciona las que quieras pasar al backlog. Podes agregar notas propias a cada una.</p>
                         </div>
                         <button class="repo-btn repo-btn--import" @onclick="MoveSelectedToBacklog" disabled="@(movingToBacklog || SelectedCount == 0)">
                             @(movingToBacklog ? "Moviendo..." : $"Pasar al backlog ({SelectedCount})")
@@ -272,10 +272,25 @@ else
                         }
                         else
                         {
-                            <div class="recommendations-list">
-                                @foreach (var recommendation in detail.Recommendations)
+                            <div class="rec-filters">
+                                <button class="rec-filter-btn @(categoryFilter == null ? "active" : "")"
+                                        @onclick="@(() => categoryFilter = null)">
+                                    Todas (@detail.Recommendations.Count)
+                                </button>
+                                @foreach (var cat in AllCategories)
                                 {
-                                    <label class="recommendation-card @(recommendation.AddedToBacklog ? "is-added" : "")">
+                                    var count = detail.Recommendations.Count(r => r.Category == cat);
+                                    <button class="rec-filter-btn rec-filter-btn--@cat @(categoryFilter == cat ? "active" : "")"
+                                            @onclick="@(() => categoryFilter = cat)">
+                                        @cat (@count)
+                                    </button>
+                                }
+                            </div>
+
+                            <div class="recommendations-list">
+                                @foreach (var recommendation in FilteredRecommendations)
+                                {
+                                    <div class="recommendation-card @(recommendation.AddedToBacklog ? "is-added" : "")">
                                         <input type="checkbox"
                                                checked="@recommendation.Selected"
                                                disabled="@recommendation.AddedToBacklog"
@@ -287,16 +302,39 @@ else
                                                     <div class="recommendation-notes">@recommendation.Notes</div>
                                                 </div>
                                                 <div class="recommendation-tags">
-                                                    <span class="recommendation-tag">@recommendation.Category</span>
-                                                    <span class="recommendation-tag recommendation-tag--priority">P@recommendation.Priority</span>
+                                                    <span class="recommendation-tag rec-cat--@recommendation.Category">@recommendation.Category</span>
+                                                    <span class="recommendation-tag recommendation-tag--priority recommendation-tag--p@recommendation.Priority">P@recommendation.Priority</span>
                                                     @if (recommendation.AddedToBacklog)
                                                     {
                                                         <span class="recommendation-tag recommendation-tag--done">En backlog</span>
                                                     }
                                                 </div>
                                             </div>
+                                            <div class="recommendation-user-notes">
+                                                @if (editingNoteId == recommendation.Id)
+                                                {
+                                                    <div class="note-edit-area">
+                                                        <textarea class="note-textarea" rows="2"
+                                                                  @bind="editingNoteText" placeholder="Escribi tu nota..."></textarea>
+                                                        <div class="note-edit-actions">
+                                                            <button class="note-btn note-btn--save" @onclick="@(() => SaveNote(recommendation))">Guardar</button>
+                                                            <button class="note-btn note-btn--cancel" @onclick="@(() => editingNoteId = 0)">Cancelar</button>
+                                                        </div>
+                                                    </div>
+                                                }
+                                                else if (!string.IsNullOrEmpty(recommendation.UserNotes))
+                                                {
+                                                    <div class="note-display" @onclick="@(() => StartEditNote(recommendation))">
+                                                        <span class="note-label">Tu nota:</span> @recommendation.UserNotes
+                                                    </div>
+                                                }
+                                                else
+                                                {
+                                                    <button class="note-add-btn" @onclick="@(() => StartEditNote(recommendation))">+ Agregar nota</button>
+                                                }
+                                            </div>
                                         </div>
-                                    </label>
+                                    </div>
                                 }
                             </div>
                         }
@@ -417,6 +455,9 @@ else
     private bool analyzing;
     private bool movingToBacklog;
     private string activeTab = "resumen";
+    private string? categoryFilter;
+    private int editingNoteId;
+    private string editingNoteText = "";
 
     private readonly (string Key, string Label, string Color, string HeaderClass)[] statuses =
     [
@@ -426,6 +467,13 @@ else
     ];
 
     private int SelectedCount => detail?.Recommendations.Count(r => r.Selected && !r.AddedToBacklog) ?? 0;
+
+    private IEnumerable<string> AllCategories => detail?.Recommendations
+        .Select(r => r.Category).Distinct().OrderBy(c => c) ?? Enumerable.Empty<string>();
+
+    private IEnumerable<ProjectRecommendationDto> FilteredRecommendations => detail?.Recommendations
+        .Where(r => categoryFilter == null || r.Category == categoryFilter)
+        ?? Enumerable.Empty<ProjectRecommendationDto>();
 
     protected override async Task OnInitializedAsync() => await LoadDetail();
 
@@ -506,6 +554,26 @@ else
         finally
         {
             movingToBacklog = false;
+        }
+    }
+
+    private void StartEditNote(ProjectRecommendationDto recommendation)
+    {
+        editingNoteId = recommendation.Id;
+        editingNoteText = recommendation.UserNotes ?? "";
+    }
+
+    private async Task SaveNote(ProjectRecommendationDto recommendation)
+    {
+        try
+        {
+            await Api.UpdateRecommendationNotesAsync(ProjectId, recommendation.Id, editingNoteText);
+            recommendation.UserNotes = editingNoteText;
+            editingNoteId = 0;
+        }
+        catch
+        {
+            Toast.Error("No se pudo guardar la nota");
         }
     }
 
