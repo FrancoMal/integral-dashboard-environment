@@ -2,6 +2,7 @@
 @inject AuthService AuthService
 @inject NavigationManager Navigation
 @inject ToastService ToastService
+@inject IJSRuntime JS
 
 <aside class="sidebar @(sidebarOpen ? "open" : "")" id="sidebar">
     <div class="sidebar-brand">
@@ -37,6 +38,9 @@
             <h1 class="topbar-title">Tu Marca</h1>
         </div>
         <div class="topbar-actions">
+            <button class="theme-toggle" @onclick="ToggleTheme" title="@(darkMode ? "Modo claro" : "Modo oscuro")">
+                @(darkMode ? SvgIcons.Sun : SvgIcons.Moon)
+            </button>
             <button class="topbar-btn" @onclick="Refresh" title="Actualizar">
                 @SvgIcons.Refresh
             </button>
@@ -56,6 +60,7 @@
 
 @code {
     private bool sidebarOpen;
+    private bool darkMode;
     private string username = "usuario";
     private string role = "user";
 
@@ -67,6 +72,25 @@
             username = user.Username;
             role = user.Role;
         }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var saved = await JS.InvokeAsync<string?>("localStorage.getItem", "theme");
+            darkMode = saved == "dark";
+            await JS.InvokeVoidAsync("eval", $"document.documentElement.setAttribute('data-theme', '{(darkMode ? "dark" : "light")}')");
+            StateHasChanged();
+        }
+    }
+
+    private async Task ToggleTheme()
+    {
+        darkMode = !darkMode;
+        var theme = darkMode ? "dark" : "light";
+        await JS.InvokeVoidAsync("localStorage.setItem", "theme", theme);
+        await JS.InvokeVoidAsync("eval", $"document.documentElement.setAttribute('data-theme', '{theme}')");
     }
 
     private bool IsActive(string href)

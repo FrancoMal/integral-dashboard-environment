@@ -49,6 +49,79 @@
   --topbar-height: 56px;
 }
 
+/* --- Dark Mode Variables --- */
+[data-theme="dark"] {
+  --sidebar-bg: #0f0f1a;
+  --sidebar-hover: #1a1a2e;
+  --sidebar-active: #232340;
+
+  --bg: #121220;
+  --card-bg: #1a1a2e;
+  --topbar-bg: #16162a;
+
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+
+  --border: #2a2a4a;
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+[data-theme="dark"] .login-card {
+  background: #1a1a2e;
+}
+
+[data-theme="dark"] .login-footer {
+  background: #16162a;
+  border-top-color: var(--border);
+}
+
+[data-theme="dark"] .form-input {
+  background: #232340;
+  border-color: var(--border);
+  color: var(--text-primary);
+}
+
+[data-theme="dark"] .form-input::placeholder {
+  color: var(--text-muted);
+}
+
+[data-theme="dark"] .suggestion-tag {
+  color: var(--primary-light);
+}
+
+[data-theme="dark"] .data-table tbody tr:hover {
+  background: rgba(16, 185, 129, 0.06);
+}
+
+[data-theme="dark"] .login-page {
+  background: linear-gradient(135deg, #0a0a14 0%, #0f1729 50%, #0a1e3d 100%);
+}
+
+/* --- Dark Mode Toggle --- */
+.theme-toggle {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  transition: all var(--transition);
+}
+
+.theme-toggle:hover {
+  background: var(--primary-bg);
+  color: var(--primary);
+}
+
+.theme-toggle svg {
+  width: 18px;
+  height: 18px;
+}
+
 /* --- Reset & Base --- */
 *, *::before, *::after {
   margin: 0;

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" data-theme="light">
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -12,11 +12,17 @@
 </head>
 <body>
     <div id="app">
-        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:#f0f2f5;">
-            <p style="color:#64748b;font-family:Inter,sans-serif;">Cargando...</p>
+        <div style="display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);">
+            <p style="color:var(--text-secondary);font-family:Inter,sans-serif;">Cargando...</p>
         </div>
     </div>
 
+    <script>
+        (function() {
+            var t = localStorage.getItem('theme');
+            if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        })();
+    </script>
     <script src="_framework/blazor.webassembly.js"></script>
 </body>
 </html>
