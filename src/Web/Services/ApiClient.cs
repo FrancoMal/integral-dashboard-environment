@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components;
 using Web.Models;
 
@@ -29,6 +30,11 @@ public class ApiClient
         return await GetAsync<VpsStats>("/api/system/stats");
     }
 
+    public async Task<ActivitySummaryDto?> GetActivitiesAsync()
+    {
+        return await GetAsync<ActivitySummaryDto>("/api/dashboard/activities");
+    }
+
     public async Task<UserDto?> GetMeAsync()
     {
         return await GetAsync<UserDto>("/api/auth/me");
@@ -52,6 +58,27 @@ public class ApiClient
     public async Task RemoveProjectAsync(int projectId)
     {
         await DeleteAsync($"/api/github/projects/{projectId}");
+    }
+
+    public async Task<ProjectDetailDto?> GetProjectDetailAsync(int projectId)
+    {
+        return await GetAsync<ProjectDetailDto>($"/api/github/projects/{projectId}/detail");
+    }
+
+    public async Task<AnalyzeProjectResultDto?> AnalyzeProjectAsync(int projectId)
+    {
+        return await PostAsync<AnalyzeProjectResultDto>($"/api/github/projects/{projectId}/analyze", new { });
+    }
+
+    public async Task UpdateRecommendationSelectionAsync(int projectId, int recommendationId, bool selected)
+    {
+        await PostAsync<object>($"/api/github/projects/{projectId}/recommendations/selection", new { recommendationId, selected });
+    }
+
+    public async Task<int> MoveSelectedRecommendationsToBacklogAsync(int projectId)
+    {
+        var result = await PostAsync<BacklogMoveResultDto>($"/api/github/projects/{projectId}/backlog", new { });
+        return result?.Moved ?? 0;
     }
 
     private async Task<T?> GetAsync<T>(string url)
@@ -99,6 +126,12 @@ public class ApiClient
         }
 
         response.EnsureSuccessStatusCode();
+    }
+
+    private sealed class BacklogMoveResultDto
+    {
+        [JsonPropertyName("moved")]
+        public int Moved { get; set; }
     }
 
     private async Task SetAuthHeaderAsync()

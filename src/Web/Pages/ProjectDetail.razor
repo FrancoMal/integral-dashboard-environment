@@ -1,0 +1,540 @@
+@page "/proyecto/{ProjectId:int}"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject ToastService Toast
+@inject NavigationManager Navigation
+
+@if (loading)
+{
+    <div class="card">
+        <div class="card-body" style="text-align:center; padding:3rem;">
+            <p class="text-muted">Cargando proyecto...</p>
+        </div>
+    </div>
+}
+else if (detail == null)
+{
+    <div class="template-message">
+        <div class="template-message-icon">@SvgIcons.AlertCircle</div>
+        <h3>Proyecto no encontrado</h3>
+        <p>No se pudo cargar el detalle de este proyecto.</p>
+        <button class="login-btn" style="max-width:250px; margin:0 auto;" @onclick="@(() => Navigation.NavigateTo("/proyectos"))">
+            Volver a Proyectos
+        </button>
+    </div>
+}
+else
+{
+    <div class="detail-header">
+        <div class="detail-header-top">
+            <button class="detail-back-btn" @onclick="@(() => Navigation.NavigateTo("/proyectos"))" title="Volver">
+                @SvgIcons.Back
+            </button>
+            <div class="detail-title-area">
+                <h2>@detail.Project.Name</h2>
+                <span class="detail-fullname">@detail.Project.FullName</span>
+            </div>
+            <div class="detail-header-actions">
+                @if (detail.Project.IsPrivate)
+                {
+                    <span class="repo-badge repo-badge--private">Privado</span>
+                }
+                @if (!string.IsNullOrEmpty(detail.Project.Language))
+                {
+                    <span class="repo-meta-item">
+                        <span class="lang-dot" style="background:@GetLanguageColor(detail.Project.Language)"></span>
+                        @detail.Project.Language
+                    </span>
+                }
+                <button class="repo-btn repo-btn--analyze" @onclick="AnalyzeProject" disabled="@analyzing">
+                    @(analyzing ? "Analizando..." : "Analizar proyecto")
+                </button>
+                <a href="@detail.Project.HtmlUrl" target="_blank" rel="noopener" class="repo-btn repo-btn--go">
+                    Abrir en GitHub
+                </a>
+            </div>
+        </div>
+        @if (!string.IsNullOrEmpty(detail.Project.Description))
+        {
+            <p class="detail-description">@detail.Project.Description</p>
+        }
+    </div>
+
+    @if (detail.Repo != null)
+    {
+        <div class="detail-stats">
+            <div class="detail-stat-item">
+                <span class="detail-stat-value">@detail.Repo.DefaultBranch</span>
+                <span class="detail-stat-label">Branch principal</span>
+            </div>
+            <div class="detail-stat-item">
+                <span class="detail-stat-value">@detail.Repo.StargazersCount</span>
+                <span class="detail-stat-label">Estrellas</span>
+            </div>
+            <div class="detail-stat-item">
+                <span class="detail-stat-value">@detail.Repo.ForksCount</span>
+                <span class="detail-stat-label">Forks</span>
+            </div>
+            <div class="detail-stat-item">
+                <span class="detail-stat-value">@detail.Repo.OpenIssuesCount</span>
+                <span class="detail-stat-label">Issues abiertas</span>
+            </div>
+            <div class="detail-stat-item">
+                <span class="detail-stat-value">@FormatDate(detail.Repo.PushedAt)</span>
+                <span class="detail-stat-label">Ultimo push</span>
+            </div>
+        </div>
+    }
+
+    <div class="detail-tabs">
+        <button class="detail-tab @(activeTab == "resumen" ? "active" : "")" @onclick="@(() => activeTab = "resumen")">Resumen</button>
+        <button class="detail-tab @(activeTab == "actividades" ? "active" : "")" @onclick="@(() => activeTab = "actividades")">Actividades</button>
+        <button class="detail-tab @(activeTab == "trabajo" ? "active" : "")" @onclick="@(() => activeTab = "trabajo")">Trabajo</button>
+        <button class="detail-tab @(activeTab == "historial" ? "active" : "")" @onclick="@(() => activeTab = "historial")">
+            Historial
+            @if (detail.Analyses.Count > 0)
+            {
+                <span class="tab-badge">@detail.Analyses.Count</span>
+            }
+        </button>
+    </div>
+
+    <div class="detail-tab-content">
+        @if (activeTab == "resumen")
+        {
+            <div class="detail-section">
+                <div class="card">
+                    <div class="card-header"><h3>Informacion del repositorio</h3></div>
+                    <div class="card-body">
+                        <table class="info-table">
+                            <tr><td class="info-label">Repositorio</td><td class="info-value">@detail.Project.FullName</td></tr>
+                            <tr><td class="info-label">Branch principal</td><td class="info-value">@(detail.Repo?.DefaultBranch ?? "N/A")</td></tr>
+                            <tr>
+                                <td class="info-label">Lenguaje</td>
+                                <td class="info-value">
+                                    @if (!string.IsNullOrEmpty(detail.Project.Language))
+                                    {
+                                        <span class="lang-dot" style="background:@GetLanguageColor(detail.Project.Language); margin-right:0.35rem"></span>@detail.Project.Language
+                                    }
+                                    else
+                                    {
+                                        <span>N/A</span>
+                                    }
+                                </td>
+                            </tr>
+                            <tr><td class="info-label">Ultimo push</td><td class="info-value">@(detail.Repo != null ? detail.Repo.PushedAt.ToString("dd MMM yyyy HH:mm") : "N/A")</td></tr>
+                            <tr><td class="info-label">Creado</td><td class="info-value">@(detail.Repo != null ? detail.Repo.CreatedAt.ToString("dd MMM yyyy") : "N/A")</td></tr>
+                            <tr><td class="info-label">Importado al dashboard</td><td class="info-value">@detail.Project.ImportedAt.ToString("dd MMM yyyy")</td></tr>
+                            <tr><td class="info-label">Link al repo</td><td class="info-value"><a href="@detail.Project.HtmlUrl" target="_blank" rel="noopener" class="detail-link">@detail.Project.HtmlUrl</a></td></tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            @if (detail.Analyses.Count > 0)
+            {
+                var lastAnalysis = detail.Analyses[0];
+                <div class="detail-section">
+                    <div class="card">
+                        <div class="card-header"><h3>Ultimo analisis</h3></div>
+                        <div class="card-body">
+                            <div class="analysis-summary-card">
+                                <div class="analysis-summary-meta">
+                                    <span class="analysis-date">@FormatDate(lastAnalysis.AnalyzedAt)</span>
+                                    <span class="analysis-files">@lastAnalysis.FilesAnalyzed archivos analizados</span>
+                                    <span class="analysis-recs">@lastAnalysis.RecommendationsGenerated nuevas recomendaciones</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(lastAnalysis.DetectedStack))
+                                {
+                                    <div class="analysis-detail-row">
+                                        <span class="analysis-label">Stack:</span>
+                                        <div class="analysis-tags-row">
+                                            @foreach (var s in lastAnalysis.DetectedStack.Split(", ", StringSplitOptions.RemoveEmptyEntries))
+                                            {
+                                                <span class="analysis-tag">@s</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(lastAnalysis.DetectedTools))
+                                {
+                                    <div class="analysis-detail-row">
+                                        <span class="analysis-label">Herramientas:</span>
+                                        <div class="analysis-tags-row">
+                                            @foreach (var t in lastAnalysis.DetectedTools.Split(", ", StringSplitOptions.RemoveEmptyEntries))
+                                            {
+                                                <span class="analysis-tag analysis-tag--tool">@t</span>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(lastAnalysis.Summary))
+                                {
+                                    <p class="analysis-summary-text">@lastAnalysis.Summary</p>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (detail.Commits.Count > 0)
+            {
+                var lastCommit = detail.Commits[0];
+                <div class="detail-section">
+                    <div class="card">
+                        <div class="card-header"><h3>Ultimo commit</h3></div>
+                        <div class="card-body">
+                            <div class="commit-highlight">
+                                <div class="commit-highlight-msg">@GetCommitTitle(lastCommit.Message)</div>
+                                <div class="commit-highlight-meta">
+                                    <span>@lastCommit.AuthorName</span>
+                                    <span class="commit-sha">@lastCommit.Sha[..7]</span>
+                                    <span>@FormatDate(lastCommit.Date)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrEmpty(detail.Readme))
+            {
+                <div class="detail-section">
+                    <div class="card">
+                        <div class="card-header"><h3>README.md</h3></div>
+                        <div class="card-body readme-content">
+                            <pre class="readme-pre">@detail.Readme</pre>
+                        </div>
+                    </div>
+                </div>
+            }
+        }
+        else if (activeTab == "actividades")
+        {
+            <div class="detail-section">
+                <div class="card">
+                    <div class="card-header"><h3>Commits recientes</h3></div>
+                    <div class="card-body" style="padding:0;">
+                        @if (detail.Commits.Count == 0)
+                        {
+                            <div style="padding:2rem; text-align:center;"><p class="text-muted">No se encontraron commits.</p></div>
+                        }
+                        else
+                        {
+                            <div class="commits-list">
+                                @foreach (var commit in detail.Commits)
+                                {
+                                    <div class="commit-item">
+                                        <div class="commit-item-left">
+                                            @if (!string.IsNullOrEmpty(commit.AuthorAvatar))
+                                            {
+                                                <img src="@commit.AuthorAvatar" alt="" class="commit-avatar" />
+                                            }
+                                            else
+                                            {
+                                                <div class="commit-avatar-placeholder">@SvgIcons.User</div>
+                                            }
+                                            <div class="commit-item-info">
+                                                <div class="commit-msg">@GetCommitTitle(commit.Message)</div>
+                                                <div class="commit-meta"><span class="commit-author">@(commit.AuthorLogin ?? commit.AuthorName)</span> committed @FormatDate(commit.Date)</div>
+                                            </div>
+                                        </div>
+                                        <a href="@commit.HtmlUrl" target="_blank" rel="noopener" class="commit-sha-link" title="Ver en GitHub">@commit.Sha[..7]</a>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        else if (activeTab == "trabajo")
+        {
+            <div class="detail-section">
+                <div class="card">
+                    <div class="card-header work-card-header">
+                        <div>
+                            <h3>Recomendaciones del analisis</h3>
+                            <p class="work-card-subtitle">Selecciona las que quieras pasar al backlog.</p>
+                        </div>
+                        <button class="repo-btn repo-btn--import" @onclick="MoveSelectedToBacklog" disabled="@(movingToBacklog || SelectedCount == 0)">
+                            @(movingToBacklog ? "Moviendo..." : $"Pasar al backlog ({SelectedCount})")
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        @if (detail.Recommendations.Count == 0)
+                        {
+                            <div class="work-empty-state">
+                                <div class="template-message-icon">@SvgIcons.Check</div>
+                                <p>Todavia no hay recomendaciones. Usa <strong>Analizar proyecto</strong> para generarlas.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="recommendations-list">
+                                @foreach (var recommendation in detail.Recommendations)
+                                {
+                                    <label class="recommendation-card @(recommendation.AddedToBacklog ? "is-added" : "")">
+                                        <input type="checkbox"
+                                               checked="@recommendation.Selected"
+                                               disabled="@recommendation.AddedToBacklog"
+                                               @onchange="@(async e => await ToggleRecommendation(recommendation, e.Value as bool? == true))" />
+                                        <div class="recommendation-body">
+                                            <div class="recommendation-top">
+                                                <div>
+                                                    <div class="recommendation-title">@recommendation.Title</div>
+                                                    <div class="recommendation-notes">@recommendation.Notes</div>
+                                                </div>
+                                                <div class="recommendation-tags">
+                                                    <span class="recommendation-tag">@recommendation.Category</span>
+                                                    <span class="recommendation-tag recommendation-tag--priority">P@recommendation.Priority</span>
+                                                    @if (recommendation.AddedToBacklog)
+                                                    {
+                                                        <span class="recommendation-tag recommendation-tag--done">En backlog</span>
+                                                    }
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </label>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="detail-section">
+                <div class="card">
+                    <div class="card-header"><h3>Trabajo del proyecto</h3></div>
+                    <div class="card-body">
+                        <div class="work-columns">
+                            @foreach (var status in statuses)
+                            {
+                                var items = detail.WorkItems.Where(w => w.Status == status.Key).ToList();
+                                <div class="work-column">
+                                    <div class="work-column-header @status.HeaderClass">
+                                        <span class="work-column-dot" style="background:@status.Color"></span>
+                                        @status.Label
+                                    </div>
+                                    <div class="work-column-body">
+                                        @if (items.Count == 0)
+                                        {
+                                            <div class="work-empty">Sin items todavia</div>
+                                        }
+                                        else
+                                        {
+                                            <div class="work-items-list">
+                                                @foreach (var item in items)
+                                                {
+                                                    <div class="work-item-card">
+                                                        <div class="work-item-title">@item.Title</div>
+                                                        <div class="work-item-notes">@item.Notes</div>
+                                                        <div class="work-item-meta">@item.Source · @FormatDate(item.CreatedAt)</div>
+                                                    </div>
+                                                }
+                                            </div>
+                                        }
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (activeTab == "historial")
+        {
+            <div class="detail-section">
+                <div class="card">
+                    <div class="card-header"><h3>Historial de analisis</h3></div>
+                    <div class="card-body">
+                        @if (detail.Analyses.Count == 0)
+                        {
+                            <div class="work-empty-state">
+                                <div class="template-message-icon">@SvgIcons.AlertCircle</div>
+                                <p>Todavia no se analizo este proyecto. Usa <strong>Analizar proyecto</strong> para generar el primer analisis.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="analysis-timeline">
+                                @foreach (var analysis in detail.Analyses)
+                                {
+                                    <div class="analysis-timeline-item">
+                                        <div class="analysis-timeline-dot"></div>
+                                        <div class="analysis-timeline-content">
+                                            <div class="analysis-timeline-header">
+                                                <span class="analysis-timeline-date">@analysis.AnalyzedAt.ToString("dd MMM yyyy HH:mm")</span>
+                                                <span class="analysis-timeline-badge">@analysis.FilesAnalyzed archivos</span>
+                                                <span class="analysis-timeline-badge analysis-timeline-badge--recs">+@analysis.RecommendationsGenerated recomendaciones</span>
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(analysis.DetectedStack))
+                                            {
+                                                <div class="analysis-detail-row">
+                                                    <span class="analysis-label">Stack:</span>
+                                                    <div class="analysis-tags-row">
+                                                        @foreach (var s in analysis.DetectedStack.Split(", ", StringSplitOptions.RemoveEmptyEntries))
+                                                        {
+                                                            <span class="analysis-tag">@s</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            @if (!string.IsNullOrEmpty(analysis.DetectedTools))
+                                            {
+                                                <div class="analysis-detail-row">
+                                                    <span class="analysis-label">Herramientas:</span>
+                                                    <div class="analysis-tags-row">
+                                                        @foreach (var t in analysis.DetectedTools.Split(", ", StringSplitOptions.RemoveEmptyEntries))
+                                                        {
+                                                            <span class="analysis-tag analysis-tag--tool">@t</span>
+                                                        }
+                                                    </div>
+                                                </div>
+                                            }
+                                            <p class="analysis-summary-text">@analysis.Summary</p>
+                                            <div class="analysis-timeline-footer">
+                                                Total acumulado: @analysis.TotalRecommendations recomendaciones
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public int ProjectId { get; set; }
+
+    private ProjectDetailDto? detail;
+    private bool loading = true;
+    private bool analyzing;
+    private bool movingToBacklog;
+    private string activeTab = "resumen";
+
+    private readonly (string Key, string Label, string Color, string HeaderClass)[] statuses =
+    [
+        ("backlog", "Backlog", "var(--text-muted)", "work-column--backlog"),
+        ("in_progress", "En progreso", "var(--info)", "work-column--progress"),
+        ("done", "Completado", "var(--primary)", "work-column--done")
+    ];
+
+    private int SelectedCount => detail?.Recommendations.Count(r => r.Selected && !r.AddedToBacklog) ?? 0;
+
+    protected override async Task OnInitializedAsync() => await LoadDetail();
+
+    private async Task LoadDetail()
+    {
+        loading = true;
+        try
+        {
+            detail = await Api.GetProjectDetailAsync(ProjectId);
+        }
+        catch
+        {
+            Toast.Error("Error al cargar el detalle del proyecto");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task AnalyzeProject()
+    {
+        analyzing = true;
+        try
+        {
+            var result = await Api.AnalyzeProjectAsync(ProjectId);
+            await LoadDetail();
+            activeTab = "trabajo";
+            if (result?.Generated > 0)
+            {
+                var msg = $"Analisis profundo listo: {result.Generated} recomendaciones nuevas ({result.FilesAnalyzed} archivos analizados)";
+                Toast.Success(msg);
+            }
+            else
+            {
+                Toast.Success($"Analisis profundo listo: sin recomendaciones nuevas ({result?.FilesAnalyzed ?? 0} archivos analizados)");
+            }
+        }
+        catch
+        {
+            Toast.Error("No se pudo analizar el proyecto");
+        }
+        finally
+        {
+            analyzing = false;
+        }
+    }
+
+    private async Task ToggleRecommendation(ProjectRecommendationDto recommendation, bool selected)
+    {
+        recommendation.Selected = selected;
+        try
+        {
+            await Api.UpdateRecommendationSelectionAsync(ProjectId, recommendation.Id, selected);
+        }
+        catch
+        {
+            recommendation.Selected = !selected;
+            Toast.Error("No se pudo actualizar la seleccion");
+        }
+    }
+
+    private async Task MoveSelectedToBacklog()
+    {
+        movingToBacklog = true;
+        try
+        {
+            var moved = await Api.MoveSelectedRecommendationsToBacklogAsync(ProjectId);
+            await LoadDetail();
+            Toast.Success(moved > 0
+                ? $"{moved} recomendacion(es) pasaron al backlog"
+                : "No habia recomendaciones seleccionadas para mover");
+        }
+        catch
+        {
+            Toast.Error("No se pudieron mover las recomendaciones al backlog");
+        }
+        finally
+        {
+            movingToBacklog = false;
+        }
+    }
+
+    private string GetCommitTitle(string message)
+    {
+        var firstLine = message.Split('\n')[0];
+        return firstLine.Length > 80 ? firstLine[..77] + "..." : firstLine;
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        var diff = DateTime.UtcNow - date;
+        if (diff.TotalMinutes < 60) return $"hace {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours < 24) return $"hace {(int)diff.TotalHours}h";
+        if (diff.TotalDays < 30) return $"hace {(int)diff.TotalDays}d";
+        return date.ToString("dd MMM yyyy");
+    }
+
+    private string GetLanguageColor(string lang) => lang?.ToLower() switch
+    {
+        "c#" => "#178600",
+        "javascript" => "#f1e05a",
+        "typescript" => "#3178c6",
+        "python" => "#3572A5",
+        "html" => "#e34c26",
+        "css" => "#563d7c",
+        "java" => "#b07219",
+        "go" => "#00ADD8",
+        "rust" => "#dea584",
+        _ => "#8b949e"
+    };
+}

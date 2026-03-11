@@ -9,6 +9,9 @@ public class AppDbContext : DbContext
 
     public DbSet<User> Users => Set<User>();
     public DbSet<Project> Projects => Set<Project>();
+    public DbSet<ProjectRecommendation> ProjectRecommendations => Set<ProjectRecommendation>();
+    public DbSet<ProjectWorkItem> ProjectWorkItems => Set<ProjectWorkItem>();
+    public DbSet<ProjectAnalysis> ProjectAnalyses => Set<ProjectAnalysis>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -23,6 +26,21 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Project>(entity =>
         {
             entity.HasIndex(p => p.GitHubRepoId).IsUnique();
+        });
+
+        modelBuilder.Entity<ProjectRecommendation>(entity =>
+        {
+            entity.HasIndex(r => new { r.ProjectId, r.Title }).IsUnique();
+        });
+
+        modelBuilder.Entity<ProjectWorkItem>(entity =>
+        {
+            entity.HasIndex(w => w.ProjectId);
+        });
+
+        modelBuilder.Entity<ProjectAnalysis>(entity =>
+        {
+            entity.HasIndex(a => a.ProjectId);
         });
     }
 }
