@@ -24,6 +24,11 @@ public class ApiClient
         return await GetAsync<DashboardStats>("/api/dashboard/stats");
     }
 
+    public async Task<VpsStats?> GetVpsStatsAsync()
+    {
+        return await GetAsync<VpsStats>("/api/system/stats");
+    }
+
     public async Task<UserDto?> GetMeAsync()
     {
         return await GetAsync<UserDto>("/api/auth/me");

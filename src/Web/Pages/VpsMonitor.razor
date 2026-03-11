@@ -1,0 +1,215 @@
+@page "/vps"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject AuthService AuthService
+
+<div class="view-header">
+    <h2>Monitoreo VPS</h2>
+    <p class="view-subtitle">Estado en tiempo real del servidor — @(stats?.Hostname ?? "...")</p>
+</div>
+
+@if (loading)
+{
+    <div class="template-message">
+        <div class="template-message-icon">@SvgIcons.Refresh</div>
+        <h3>Cargando datos del servidor...</h3>
+    </div>
+}
+else if (stats == null)
+{
+    <div class="template-message">
+        <div class="template-message-icon">@SvgIcons.AlertCircle</div>
+        <h3>No se pudieron obtener los datos</h3>
+        <p>Verifica que el contenedor de la API tenga acceso a los recursos del host.</p>
+    </div>
+}
+else
+{
+    @* ── Resource Cards ── *@
+    <div class="stats-grid">
+        <StatCard Icon="@SvgIcons.Monitor" Value="@($"{stats.Cpu.UsagePercent}%")"
+                  Label="@($"CPU ({stats.Cpu.Cores} cores)")" Variant="@CpuVariant" />
+        <StatCard Icon="@SvgIcons.Memory" Value="@($"{stats.Memory.UsagePercent}%")"
+                  Label="@($"RAM {stats.Memory.UsedMb:N0} / {stats.Memory.TotalMb:N0} MB")" Variant="@MemVariant" />
+        <StatCard Icon="@SvgIcons.Disk" Value="@($"{stats.Disk.UsagePercent}%")"
+                  Label="@($"Disco {stats.Disk.Used} / {stats.Disk.Total}")" Variant="@DiskVariant" />
+        <StatCard Icon="@SvgIcons.Clock" Value="@stats.Uptime.Formatted"
+                  Label="Tiempo encendido" Variant="info" />
+    </div>
+
+    @* ── Load Average ── *@
+    <div class="stats-grid" style="margin-bottom:1.5rem;">
+        <div class="card">
+            <div class="card-header"><h3>Load Average</h3></div>
+            <div class="card-body">
+                <div class="load-avg-row">
+                    <div class="load-avg-item">
+                        <span class="load-avg-value">@stats.LoadAverage.Load1</span>
+                        <span class="load-avg-label">1 min</span>
+                    </div>
+                    <div class="load-avg-item">
+                        <span class="load-avg-value">@stats.LoadAverage.Load5</span>
+                        <span class="load-avg-label">5 min</span>
+                    </div>
+                    <div class="load-avg-item">
+                        <span class="load-avg-value">@stats.LoadAverage.Load15</span>
+                        <span class="load-avg-label">15 min</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h3>CPU</h3></div>
+            <div class="card-body">
+                <p class="cpu-model-text">@stats.Cpu.Model</p>
+                <div class="progress-bar-container">
+                    <div class="progress-bar @CpuBarClass" style="width: @(stats.Cpu.UsagePercent)%"></div>
+                </div>
+                <span class="progress-label">@stats.Cpu.UsagePercent% utilizado</span>
+            </div>
+        </div>
+    </div>
+
+    @* ── Progress bars: RAM & Disco ── *@
+    <div class="stats-grid" style="margin-bottom:1.5rem;">
+        <div class="card">
+            <div class="card-header"><h3>Memoria RAM</h3></div>
+            <div class="card-body">
+                <div class="progress-bar-container">
+                    <div class="progress-bar @MemBarClass" style="width: @(stats.Memory.UsagePercent)%"></div>
+                </div>
+                <span class="progress-label">@stats.Memory.UsedMb.ToString("N0") MB usados de @stats.Memory.TotalMb.ToString("N0") MB</span>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-header"><h3>Disco</h3></div>
+            <div class="card-body">
+                <div class="progress-bar-container">
+                    <div class="progress-bar @DiskBarClass" style="width: @(stats.Disk.UsagePercent)%"></div>
+                </div>
+                <span class="progress-label">@stats.Disk.Used usados de @stats.Disk.Total</span>
+            </div>
+        </div>
+    </div>
+
+    @* ── Docker Containers ── *@
+    <div class="card" style="margin-bottom:1.5rem;">
+        <div class="card-header">
+            <h3>Contenedores Docker (@stats.Containers.Length)</h3>
+        </div>
+        <div class="card-body" style="padding:0;">
+            @if (stats.Containers.Length == 0)
+            {
+                <p style="padding:1.25rem; color:var(--text-secondary);">No se encontraron contenedores o no hay acceso al Docker socket.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Nombre</th>
+                                <th>Imagen</th>
+                                <th>Estado</th>
+                                <th>Status</th>
+                                <th>Creado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var c in stats.Containers)
+                            {
+                                <tr>
+                                    <td><strong>@c.Name</strong></td>
+                                    <td class="text-muted">@TruncateImage(c.Image)</td>
+                                    <td>
+                                        <span class="status-badge @(c.State == "running" ? "status-active" : "status-stopped")">
+                                            @c.State
+                                        </span>
+                                    </td>
+                                    <td class="text-muted">@c.Status</td>
+                                    <td class="text-muted">@c.Created</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+
+    @* ── Top Processes ── *@
+    <div class="card">
+        <div class="card-header">
+            <h3>Procesos principales (top 15 por memoria)</h3>
+        </div>
+        <div class="card-body" style="padding:0;">
+            @if (stats.Processes.Length == 0)
+            {
+                <p style="padding:1.25rem; color:var(--text-secondary);">No se pudieron obtener los procesos.</p>
+            }
+            else
+            {
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>PID</th>
+                                <th>Usuario</th>
+                                <th>CPU%</th>
+                                <th>MEM%</th>
+                                <th>Comando</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var p in stats.Processes)
+                            {
+                                <tr>
+                                    <td>@p.Pid</td>
+                                    <td>@p.User</td>
+                                    <td>@p.Cpu</td>
+                                    <td>@p.Mem</td>
+                                    <td class="text-muted process-cmd">@TruncateCmd(p.Command)</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    private VpsStats? stats;
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            stats = await Api.GetVpsStatsAsync();
+        }
+        catch
+        {
+            stats = null;
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private string GetVariant(double pct) => pct > 85 ? "danger" : pct > 60 ? "warning" : "primary";
+    private string GetBarClass(double pct) => pct > 85 ? "progress-bar--danger" : pct > 60 ? "progress-bar--warning" : "progress-bar--primary";
+
+    private string CpuVariant => GetVariant(stats?.Cpu.UsagePercent ?? 0);
+    private string MemVariant => GetVariant(stats?.Memory.UsagePercent ?? 0);
+    private string DiskVariant => GetVariant(double.TryParse(stats?.Disk.UsagePercent, out var d) ? d : 0);
+
+    private string CpuBarClass => GetBarClass(stats?.Cpu.UsagePercent ?? 0);
+    private string MemBarClass => GetBarClass(stats?.Memory.UsagePercent ?? 0);
+    private string DiskBarClass => GetBarClass(double.TryParse(stats?.Disk.UsagePercent, out var d) ? d : 0);
+
+    private string TruncateImage(string img) => img.Length > 45 ? img[..42] + "..." : img;
+    private string TruncateCmd(string cmd) => cmd.Length > 60 ? cmd[..57] + "..." : cmd;
+}

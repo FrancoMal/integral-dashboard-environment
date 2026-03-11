@@ -11,6 +11,8 @@
     <nav class="sidebar-nav" role="navigation" aria-label="Menu principal">
         <NavItem Href="/" Label="Dashboard" Icon="@SvgIcons.Dashboard"
                  IsActive="@IsActive("/")" OnClick="@(() => NavigateTo("/"))" />
+        <NavItem Href="/vps" Label="Monitoreo VPS" Icon="@SvgIcons.Monitor"
+                 IsActive="@IsActive("/vps")" OnClick="@(() => NavigateTo("/vps"))" />
         <NavItem Href="/config" Label="Configuracion" Icon="@SvgIcons.Settings"
                  IsActive="@IsActive("/config")" OnClick="@(() => NavigateTo("/config"))" />
     </nav>
