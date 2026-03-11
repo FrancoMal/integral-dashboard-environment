@@ -12,6 +12,10 @@
     <nav class="sidebar-nav" role="navigation" aria-label="Menu principal">
         <NavItem Href="/" Label="Dashboard" Icon="@SvgIcons.Dashboard"
                  IsActive="@IsActive("/")" OnClick="@(() => NavigateTo("/"))" />
+        <NavItem Href="/github" Label="GitHub" Icon="@SvgIcons.GitHub"
+                 IsActive="@IsActive("/github")" OnClick="@(() => NavigateTo("/github"))" />
+        <NavItem Href="/proyectos" Label="Proyectos" Icon="@SvgIcons.Folder"
+                 IsActive="@IsActive("/proyectos")" OnClick="@(() => NavigateTo("/proyectos"))" />
         <NavItem Href="/vps" Label="Monitoreo VPS" Icon="@SvgIcons.Monitor"
                  IsActive="@IsActive("/vps")" OnClick="@(() => NavigateTo("/vps"))" />
         <NavItem Href="/config" Label="Configuracion" Icon="@SvgIcons.Settings"

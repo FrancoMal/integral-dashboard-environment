@@ -42,6 +42,7 @@ builder.Services.AddAuthorization();
 
 // Services
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddSingleton<GitHubService>();
 
 // CORS
 builder.Services.AddCors(options =>
@@ -110,6 +111,13 @@ using (var scope = app.Services.CreateScope())
         admin.PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123");
         await db.SaveChangesAsync();
     }
+}
+
+// Ensure database tables exist (Projects)
+using (var migrateScope = app.Services.CreateScope())
+{
+    var migrateDb = migrateScope.ServiceProvider.GetRequiredService<AppDbContext>();
+    await migrateDb.Database.EnsureCreatedAsync();
 }
 
 // Middleware pipeline

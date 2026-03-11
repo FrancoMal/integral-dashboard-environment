@@ -25,6 +25,24 @@ BEGIN
 END
 GO
 
+-- Projects table
+IF NOT EXISTS (SELECT * FROM sysobjects WHERE name='Projects' AND xtype='U')
+BEGIN
+    CREATE TABLE Projects (
+        Id INT PRIMARY KEY IDENTITY(1,1),
+        GitHubRepoId BIGINT NOT NULL UNIQUE,
+        Name NVARCHAR(255) NOT NULL,
+        FullName NVARCHAR(255) NOT NULL,
+        Description NVARCHAR(MAX) NULL,
+        HtmlUrl NVARCHAR(500) NOT NULL,
+        Language NVARCHAR(100) NULL,
+        IsPrivate BIT DEFAULT 0,
+        ImportedAt DATETIME2 DEFAULT GETDATE(),
+        IsActive BIT DEFAULT 1
+    );
+END
+GO
+
 -- Seed admin user (password will be set by API on startup)
 IF NOT EXISTS (SELECT * FROM Users WHERE Username = 'admin')
 BEGIN

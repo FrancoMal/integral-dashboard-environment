@@ -34,6 +34,26 @@ public class ApiClient
         return await GetAsync<UserDto>("/api/auth/me");
     }
 
+    public async Task<List<GitHubRepoDto>?> GetGitHubReposAsync()
+    {
+        return await GetAsync<List<GitHubRepoDto>>("/api/github/repos");
+    }
+
+    public async Task<List<ProjectDto>?> GetProjectsAsync()
+    {
+        return await GetAsync<List<ProjectDto>>("/api/github/projects");
+    }
+
+    public async Task<ProjectDto?> ImportRepoAsync(long repoId)
+    {
+        return await PostAsync<ProjectDto>("/api/github/import", new { repoId });
+    }
+
+    public async Task RemoveProjectAsync(int projectId)
+    {
+        await DeleteAsync($"/api/github/projects/{projectId}");
+    }
+
     private async Task<T?> GetAsync<T>(string url)
     {
         await SetAuthHeaderAsync();
@@ -48,6 +68,37 @@ public class ApiClient
 
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private async Task<T?> PostAsync<T>(string url, object body)
+    {
+        await SetAuthHeaderAsync();
+        var response = await _http.PostAsJsonAsync(url, body);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await _authService.LogoutAsync();
+            _navigation.NavigateTo("/login", forceLoad: true);
+            return default;
+        }
+
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadFromJsonAsync<T>();
+    }
+
+    private async Task DeleteAsync(string url)
+    {
+        await SetAuthHeaderAsync();
+        var response = await _http.DeleteAsync(url);
+
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            await _authService.LogoutAsync();
+            _navigation.NavigateTo("/login", forceLoad: true);
+            return;
+        }
+
+        response.EnsureSuccessStatusCode();
     }
 
     private async Task SetAuthHeaderAsync()

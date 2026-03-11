@@ -1,0 +1,136 @@
+@page "/proyectos"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject ToastService Toast
+@inject NavigationManager Navigation
+
+<div class="view-header">
+    <h2>Proyectos</h2>
+    <p class="view-subtitle">Repositorios importados desde GitHub</p>
+</div>
+
+@if (loading)
+{
+    <div class="card">
+        <div class="card-body" style="text-align:center; padding:3rem;">
+            <p class="text-muted">Cargando proyectos...</p>
+        </div>
+    </div>
+}
+else if (projects.Count == 0)
+{
+    <div class="template-message">
+        <div class="template-message-icon">@SvgIcons.Code</div>
+        <h3>Sin proyectos todavia</h3>
+        <p>Importa repositorios desde la seccion de GitHub para verlos aca.</p>
+        <button class="login-btn" style="max-width:250px; margin:0 auto;" @onclick="@(() => Navigation.NavigateTo("/github"))">
+            Ir a GitHub
+        </button>
+    </div>
+}
+else
+{
+    <div class="projects-grid">
+        @foreach (var project in projects)
+        {
+            <div class="project-card">
+                <div class="project-header">
+                    <div class="project-name-row">
+                        <span class="repo-icon">@SvgIcons.Code</span>
+                        <span class="project-name">@project.Name</span>
+                        @if (project.IsPrivate)
+                        {
+                            <span class="repo-badge repo-badge--private">Privado</span>
+                        }
+                    </div>
+                </div>
+                <div class="project-body">
+                    @if (!string.IsNullOrEmpty(project.Description))
+                    {
+                        <p class="repo-description">@project.Description</p>
+                    }
+                    else
+                    {
+                        <p class="repo-description text-muted">Sin descripcion</p>
+                    }
+                    <div class="repo-meta">
+                        @if (!string.IsNullOrEmpty(project.Language))
+                        {
+                            <span class="repo-meta-item">
+                                <span class="lang-dot" style="background:@GetLanguageColor(project.Language)"></span>
+                                @project.Language
+                            </span>
+                        }
+                        <span class="repo-meta-item">Importado @project.ImportedAt.ToString("dd MMM yyyy")</span>
+                    </div>
+                </div>
+                <div class="project-actions">
+                    <a href="@project.HtmlUrl" target="_blank" rel="noopener" class="repo-btn repo-btn--go">
+                        Abrir en GitHub
+                    </a>
+                    <button class="repo-btn repo-btn--remove" @onclick="@(() => RemoveProject(project))"
+                            title="Quitar de Proyectos">
+                        Quitar
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<ProjectDto> projects = new();
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        loading = true;
+        try
+        {
+            var result = await Api.GetProjectsAsync();
+            if (result != null)
+                projects = result;
+        }
+        catch
+        {
+            Toast.Error("Error al cargar proyectos");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task RemoveProject(ProjectDto project)
+    {
+        try
+        {
+            await Api.RemoveProjectAsync(project.Id);
+            projects.Remove(project);
+            Toast.Success($"'{project.Name}' quitado de Proyectos");
+        }
+        catch
+        {
+            Toast.Error($"Error al quitar '{project.Name}'");
+        }
+    }
+
+    private string GetLanguageColor(string lang) => lang?.ToLower() switch
+    {
+        "c#" => "#178600",
+        "javascript" => "#f1e05a",
+        "typescript" => "#3178c6",
+        "python" => "#3572A5",
+        "html" => "#e34c26",
+        "css" => "#563d7c",
+        "java" => "#b07219",
+        "go" => "#00ADD8",
+        "rust" => "#dea584",
+        _ => "#8b949e"
+    };
+}

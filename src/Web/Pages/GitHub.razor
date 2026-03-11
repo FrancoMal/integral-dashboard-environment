@@ -1,0 +1,201 @@
+@page "/github"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject ToastService Toast
+@inject NavigationManager Navigation
+
+<div class="view-header">
+    <h2>GitHub</h2>
+    <p class="view-subtitle">Repositorios reales de tu cuenta de GitHub</p>
+</div>
+
+@if (loading)
+{
+    <div class="card">
+        <div class="card-body" style="text-align:center; padding:3rem;">
+            <p class="text-muted">Cargando repositorios desde GitHub...</p>
+        </div>
+    </div>
+}
+else if (error != null)
+{
+    <div class="card">
+        <div class="card-body" style="text-align:center; padding:3rem;">
+            <p style="color:var(--danger);">@error</p>
+        </div>
+    </div>
+}
+else
+{
+    <div class="github-toolbar">
+        <div class="github-search">
+            <input type="text" class="form-input" placeholder="Buscar repositorio..."
+                   @bind="searchTerm" @bind:event="oninput" />
+        </div>
+        <div class="github-filters">
+            <button class="filter-btn @(showAll ? "active" : "")" @onclick="@(() => { showAll = true; })">
+                Todos (@repos.Count)
+            </button>
+            <button class="filter-btn @(!showAll ? "active" : "")" @onclick="@(() => { showAll = false; })">
+                Ocultos (@hiddenIds.Count)
+            </button>
+        </div>
+        <span class="github-count">@FilteredRepos.Count() repos</span>
+    </div>
+
+    <div class="repos-list">
+        @foreach (var repo in FilteredRepos)
+        {
+            var isHidden = hiddenIds.Contains(repo.Id);
+            <div class="repo-card @(isHidden ? "repo-hidden" : "") @(repo.IsImported ? "repo-imported" : "")">
+                <div class="repo-info">
+                    <div class="repo-name-row">
+                        <span class="repo-icon">@SvgIcons.Code</span>
+                        <a href="@repo.HtmlUrl" target="_blank" rel="noopener" class="repo-name">@repo.Name</a>
+                        @if (repo.IsPrivate)
+                        {
+                            <span class="repo-badge repo-badge--private">Privado</span>
+                        }
+                        @if (repo.IsImported)
+                        {
+                            <span class="repo-badge repo-badge--imported">En Proyectos</span>
+                        }
+                    </div>
+                    @if (!string.IsNullOrEmpty(repo.Description))
+                    {
+                        <p class="repo-description">@repo.Description</p>
+                    }
+                    <div class="repo-meta">
+                        @if (!string.IsNullOrEmpty(repo.Language))
+                        {
+                            <span class="repo-meta-item">
+                                <span class="lang-dot" style="background:@GetLanguageColor(repo.Language)"></span>
+                                @repo.Language
+                            </span>
+                        }
+                        <span class="repo-meta-item">@repo.StargazersCount estrella@(repo.StargazersCount != 1 ? "s" : "")</span>
+                        <span class="repo-meta-item">Actualizado @FormatDate(repo.UpdatedAt)</span>
+                    </div>
+                </div>
+                <div class="repo-actions">
+                    @if (!repo.IsImported)
+                    {
+                        <button class="repo-btn repo-btn--import" @onclick="@(() => ImportRepo(repo))"
+                                disabled="@importing" title="Importar a Proyectos">
+                            @if (importingId == repo.Id)
+                            {
+                                <span>Importando...</span>
+                            }
+                            else
+                            {
+                                <span>Importar</span>
+                            }
+                        </button>
+                    }
+                    else
+                    {
+                        <button class="repo-btn repo-btn--go" @onclick="@(() => Navigation.NavigateTo("/proyectos"))"
+                                title="Ver en Proyectos">
+                            Ver
+                        </button>
+                    }
+                    <button class="repo-btn repo-btn--toggle" @onclick="@(() => ToggleVisibility(repo.Id))"
+                            title="@(isHidden ? "Mostrar" : "Ocultar")">
+                        @(isHidden ? "Mostrar" : "Ocultar")
+                    </button>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<GitHubRepoDto> repos = new();
+    private HashSet<long> hiddenIds = new();
+    private bool loading = true;
+    private string? error;
+    private string searchTerm = "";
+    private bool showAll = true;
+    private bool importing;
+    private long importingId;
+
+    private IEnumerable<GitHubRepoDto> FilteredRepos => repos
+        .Where(r => showAll ? !hiddenIds.Contains(r.Id) : hiddenIds.Contains(r.Id))
+        .Where(r => string.IsNullOrEmpty(searchTerm) ||
+                     r.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ||
+                     (r.Description?.Contains(searchTerm, StringComparison.OrdinalIgnoreCase) ?? false));
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await Api.GetGitHubReposAsync();
+            if (result != null)
+                repos = result;
+        }
+        catch (Exception ex)
+        {
+            error = $"Error al cargar repos: {ex.Message}";
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private async Task ImportRepo(GitHubRepoDto repo)
+    {
+        try
+        {
+            importing = true;
+            importingId = repo.Id;
+            StateHasChanged();
+
+            await Api.ImportRepoAsync(repo.Id);
+            repo.IsImported = true;
+            Toast.Success($"'{repo.Name}' importado a Proyectos");
+        }
+        catch
+        {
+            Toast.Error($"Error al importar '{repo.Name}'");
+        }
+        finally
+        {
+            importing = false;
+            importingId = 0;
+        }
+    }
+
+    private void ToggleVisibility(long repoId)
+    {
+        if (!hiddenIds.Remove(repoId))
+            hiddenIds.Add(repoId);
+    }
+
+    private string FormatDate(DateTime date)
+    {
+        var diff = DateTime.UtcNow - date;
+        if (diff.TotalMinutes < 60) return $"hace {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours < 24) return $"hace {(int)diff.TotalHours}h";
+        if (diff.TotalDays < 30) return $"hace {(int)diff.TotalDays}d";
+        return date.ToString("dd MMM yyyy");
+    }
+
+    private string GetLanguageColor(string lang) => lang?.ToLower() switch
+    {
+        "c#" => "#178600",
+        "javascript" => "#f1e05a",
+        "typescript" => "#3178c6",
+        "python" => "#3572A5",
+        "html" => "#e34c26",
+        "css" => "#563d7c",
+        "java" => "#b07219",
+        "go" => "#00ADD8",
+        "rust" => "#dea584",
+        "ruby" => "#701516",
+        "php" => "#4F5D95",
+        "shell" => "#89e051",
+        "dart" => "#00B4AB",
+        _ => "#8b949e"
+    };
+}
