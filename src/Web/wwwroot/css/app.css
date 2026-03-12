@@ -381,6 +381,20 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
 .activity-status-badge--done { background: var(--primary-bg); color: var(--primary); }
 .activity-status-badge--progress { background: var(--info-bg); color: var(--info); }
 .activity-status-badge--pending { background: var(--warning-bg); color: var(--warning); }
+.activity-item-badges { display: flex; gap: 0.3rem; flex-shrink: 0; flex-wrap: wrap; }
+.activity-source-badge { padding: 0.2rem 0.5rem; border-radius: 999px; font-size: 0.68rem; font-weight: 600; text-transform: uppercase; }
+.activity-source-badge--github { background: rgba(99, 102, 241, 0.12); color: #6366f1; }
+.activity-source-badge--analisis { background: rgba(239, 68, 68, 0.12); color: #ef4444; }
+.activity-source-badge--features { background: rgba(59, 130, 246, 0.12); color: #3b82f6; }
+.activity-source-badge--backlog { background: rgba(245, 158, 11, 0.12); color: #f59e0b; }
+.activity-source-badge--orquestador { background: rgba(139, 92, 246, 0.12); color: #8b5cf6; }
+.activity-project-link { color: var(--primary); font-weight: 600; font-size: 0.78rem; cursor: pointer; text-decoration: none; }
+.activity-project-link:hover { text-decoration: underline; }
+.rec-filter-btn--github.active { background: #6366f1; border-color: #6366f1; }
+.rec-filter-btn--analisis.active { background: #ef4444; border-color: #ef4444; }
+.rec-filter-btn--features.active { background: #3b82f6; border-color: #3b82f6; }
+.rec-filter-btn--backlog.active { background: #f59e0b; border-color: #f59e0b; }
+.rec-filter-btn--orquestador.active { background: #8b5cf6; border-color: #8b5cf6; }
 
 /* --- Features --- */
 .features-list { display: flex; flex-direction: column; gap: 0.75rem; }

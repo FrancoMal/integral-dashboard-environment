@@ -30,9 +30,12 @@ public class ApiClient
         return await GetAsync<VpsStats>("/api/system/stats");
     }
 
-    public async Task<ActivitySummaryDto?> GetActivitiesAsync()
+    public async Task<ActivitySummaryDto?> GetActivitiesAsync(string? sourceFilter = null)
     {
-        return await GetAsync<ActivitySummaryDto>("/api/dashboard/activities");
+        var url = "/api/dashboard/activities";
+        if (!string.IsNullOrEmpty(sourceFilter))
+            url += $"?source={sourceFilter}";
+        return await GetAsync<ActivitySummaryDto>(url);
     }
 
     public async Task<UserDto?> GetMeAsync()

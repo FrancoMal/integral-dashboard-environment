@@ -1,0 +1,173 @@
+@page "/actividades"
+@attribute [Authorize]
+@inject ApiClient Api
+@inject ToastService Toast
+@inject NavigationManager Navigation
+
+<div class="view-header">
+    <h2>Actividades</h2>
+    <p class="view-subtitle">Historial de acciones, analisis, features y trabajo del sistema</p>
+</div>
+
+@if (loading)
+{
+    <div class="card">
+        <div class="card-body" style="text-align:center; padding:3rem;">
+            <p class="text-muted">Cargando actividades...</p>
+        </div>
+    </div>
+}
+else if (summary == null || summary.Items.Count == 0)
+{
+    <div class="template-message">
+        <div class="template-message-icon">@SvgIcons.Clock</div>
+        <h3>Sin actividades todavia</h3>
+        <p>Cuando analices proyectos, importes repos o generes features, el historial aparecera aca.</p>
+    </div>
+}
+else
+{
+    <div class="stats-grid">
+        <StatCard Icon="@SvgIcons.Clock" Value="@summary.Total.ToString()" Label="Eventos totales" Variant="primary" />
+        <StatCard Icon="@SvgIcons.Check" Value="@summary.Done.ToString()" Label="Completados" Variant="warning" />
+        @if (summary.Sources.Count > 0)
+        {
+            @foreach (var src in summary.Sources.Take(2))
+            {
+                <StatCard Icon="@GetSourceIcon(src.Source)" Value="@src.Count.ToString()" Label="@GetSourceLabel(src.Source)" Variant="info" />
+            }
+        }
+    </div>
+
+    <div class="card" style="margin-bottom:1rem;">
+        <div class="card-body" style="padding:0.75rem 1rem;">
+            <div class="rec-filters">
+                <button class="rec-filter-btn @(sourceFilter == null ? "active" : "")"
+                        @onclick="@(() => { sourceFilter = null; _ = LoadActivities(); })">
+                    Todas
+                </button>
+                @foreach (var src in summary.Sources)
+                {
+                    <button class="rec-filter-btn rec-filter-btn--@src.Source @(sourceFilter == src.Source ? "active" : "")"
+                            @onclick="@(() => { sourceFilter = src.Source; _ = LoadActivities(); })">
+                        @GetSourceLabel(src.Source) (@src.Count)
+                    </button>
+                }
+            </div>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Ultimas actividades</h3>
+        </div>
+        <div class="card-body">
+            <div class="activities-list">
+                @foreach (var item in summary.Items)
+                {
+                    <div class="activity-item activity-item--@NormalizeStatus(item.Status)">
+                        <div class="activity-item-icon">
+                            @GetIcon(item.Source)
+                        </div>
+                        <div class="activity-item-body">
+                            <div class="activity-item-top">
+                                <div>
+                                    <div class="activity-item-title">@item.Title</div>
+                                    @if (!string.IsNullOrEmpty(item.Description))
+                                    {
+                                        <div class="activity-item-description">@item.Description</div>
+                                    }
+                                </div>
+                                <div class="activity-item-badges">
+                                    <span class="activity-status-badge activity-status-badge--@NormalizeStatus(item.Status)">@GetStatusLabel(item.Status)</span>
+                                    <span class="activity-source-badge activity-source-badge--@item.Source">@GetSourceLabel(item.Source)</span>
+                                </div>
+                            </div>
+                            <div class="activity-item-meta">
+                                @if (item.ProjectId.HasValue && !string.IsNullOrEmpty(item.ProjectName))
+                                {
+                                    <a class="activity-project-link" @onclick="@(() => Navigation.NavigateTo($"/proyecto/{item.ProjectId}"))">@item.ProjectName</a>
+                                    <span>·</span>
+                                }
+                                <span>@FormatDate(item.Timestamp)</span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private ActivitySummaryDto? summary;
+    private bool loading = true;
+    private string? sourceFilter;
+
+    protected override async Task OnInitializedAsync() => await LoadActivities();
+
+    private async Task LoadActivities()
+    {
+        loading = true;
+        try
+        {
+            summary = await Api.GetActivitiesAsync(sourceFilter);
+        }
+        catch
+        {
+            Toast.Error("No se pudieron cargar las actividades");
+        }
+        finally
+        {
+            loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private string NormalizeStatus(string status) => status?.ToLowerInvariant() switch
+    {
+        "done" => "done",
+        "completed" => "done",
+        "in_progress" => "progress",
+        "running" => "progress",
+        _ => "pending"
+    };
+
+    private string GetStatusLabel(string status) => status?.ToLowerInvariant() switch
+    {
+        "done" or "completed" => "Completada",
+        "in_progress" or "running" => "En curso",
+        _ => "Pendiente"
+    };
+
+    private string GetSourceLabel(string source) => source?.ToLowerInvariant() switch
+    {
+        "github" => "GitHub",
+        "analisis" => "Analisis",
+        "features" => "Features",
+        "backlog" => "Backlog",
+        "orquestador" => "Orquestador",
+        _ => source ?? "Sistema"
+    };
+
+    private MarkupString GetIcon(string source) => source?.ToLowerInvariant() switch
+    {
+        "github" => SvgIcons.GitHub,
+        "backlog" => SvgIcons.Folder,
+        "analisis" => SvgIcons.Memory,
+        "features" => SvgIcons.Code,
+        "orquestador" => SvgIcons.Refresh,
+        _ => SvgIcons.Clock
+    };
+
+    private MarkupString GetSourceIcon(string source) => GetIcon(source);
+
+    private string FormatDate(DateTime date)
+    {
+        var diff = DateTime.UtcNow - date;
+        if (diff.TotalMinutes < 60) return $"hace {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours < 24) return $"hace {(int)diff.TotalHours}h";
+        if (diff.TotalDays < 30) return $"hace {(int)diff.TotalDays}d";
+        return date.ToString("dd MMM yyyy HH:mm");
+    }
+}

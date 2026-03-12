@@ -199,6 +199,26 @@ END
 ");
 
     await migrateDb.Database.ExecuteSqlRawAsync(@"
+IF OBJECT_ID(N'[ActivityLogs]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [ActivityLogs] (
+        [Id] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [ProjectId] INT NULL,
+        [ProjectName] NVARCHAR(255) NOT NULL DEFAULT '',
+        [Action] NVARCHAR(100) NOT NULL,
+        [Title] NVARCHAR(500) NOT NULL,
+        [Detail] NVARCHAR(MAX) NOT NULL DEFAULT '',
+        [Source] NVARCHAR(50) NOT NULL,
+        [Status] NVARCHAR(50) NOT NULL DEFAULT 'done',
+        [CreatedAt] DATETIME2 NOT NULL
+    );
+    CREATE INDEX [IX_ActivityLogs_CreatedAt] ON [ActivityLogs]([CreatedAt] DESC);
+    CREATE INDEX [IX_ActivityLogs_ProjectId] ON [ActivityLogs]([ProjectId]);
+    CREATE INDEX [IX_ActivityLogs_Source] ON [ActivityLogs]([Source]);
+END
+");
+
+    await migrateDb.Database.ExecuteSqlRawAsync(@"
 IF OBJECT_ID(N'[ProjectFeatures]', N'U') IS NULL
 BEGIN
     CREATE TABLE [ProjectFeatures] (

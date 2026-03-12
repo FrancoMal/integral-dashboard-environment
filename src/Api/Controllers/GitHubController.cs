@@ -85,6 +85,8 @@ public class GitHubController : ControllerBase
         };
 
         _db.Projects.Add(project);
+        Log("import", $"Proyecto importado: {project.Name}", "github",
+            $"Repo {project.FullName} importado desde GitHub", projectId: null, projectName: project.Name);
         await _db.SaveChangesAsync();
 
         return Ok(project);
@@ -550,6 +552,11 @@ public class GitHubController : ControllerBase
         analysis.TotalRecommendations = await _db.ProjectRecommendations.CountAsync(r => r.ProjectId == project.Id) + generated;
         _db.ProjectAnalyses.Add(analysis);
 
+        var analysisSummary = claudeUsed ? "Analisis profundo con IA" : "Analisis estructural";
+        Log("analyze", $"{analysisSummary}: {generated} recomendaciones nuevas", "analisis",
+            $"{analysis.Summary}. {fileCount} archivos, stack: {analysis.DetectedStack}",
+            projectId: project.Id, projectName: project.Name);
+
         await _db.SaveChangesAsync();
 
         // Vincular recomendaciones nuevas al analisis
@@ -621,6 +628,10 @@ public class GitHubController : ControllerBase
             generated++;
         }
 
+        Log("features", $"Features propuestas: {generated} nuevas", "features",
+            $"IA analizo archivos clave y propuso {generated} features para {project.Name}",
+            projectId: project.Id, projectName: project.Name);
+
         await _db.SaveChangesAsync();
         var total = await _db.ProjectFeatures.CountAsync(f => f.ProjectId == project.Id);
 
@@ -676,6 +687,14 @@ public class GitHubController : ControllerBase
                 Source = "feature"
             });
             feature.AddedToBacklog = true;
+        }
+
+        if (features.Count > 0)
+        {
+            var project = await _db.Projects.FindAsync(id);
+            Log("backlog", $"{features.Count} feature(s) al backlog", "features",
+                string.Join(", ", features.Select(f => f.Title)),
+                projectId: id, projectName: project?.Name ?? "");
         }
 
         await _db.SaveChangesAsync();
@@ -734,6 +753,13 @@ public class GitHubController : ControllerBase
 
             recommendation.AddedToBacklog = true;
             recommendation.Selected = false;
+        }
+
+        if (selected.Count > 0)
+        {
+            Log("backlog", $"{selected.Count} recomendacion(es) al backlog", "backlog",
+                string.Join(", ", selected.Select(s => s.Title)),
+                projectId: id, projectName: project.Name);
         }
 
         await _db.SaveChangesAsync();
@@ -824,6 +850,20 @@ public class GitHubController : ControllerBase
         }
 
         return selected.Distinct().Take(12).ToList();
+    }
+
+    private void Log(string action, string title, string source, string detail = "", int? projectId = null, string projectName = "", string status = "done")
+    {
+        _db.ActivityLogs.Add(new ActivityLog
+        {
+            ProjectId = projectId,
+            ProjectName = projectName,
+            Action = action,
+            Title = title,
+            Detail = detail,
+            Source = source,
+            Status = status
+        });
     }
 
     private sealed record ProjectRecommendationSeed(string Title, string Notes, string Category, int Priority);

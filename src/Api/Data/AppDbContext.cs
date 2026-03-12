@@ -13,6 +13,7 @@ public class AppDbContext : DbContext
     public DbSet<ProjectWorkItem> ProjectWorkItems => Set<ProjectWorkItem>();
     public DbSet<ProjectAnalysis> ProjectAnalyses => Set<ProjectAnalysis>();
     public DbSet<ProjectFeature> ProjectFeatures => Set<ProjectFeature>();
+    public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -48,6 +49,13 @@ public class AppDbContext : DbContext
         {
             entity.HasIndex(f => f.ProjectId);
             entity.HasIndex(f => new { f.ProjectId, f.Title }).IsUnique();
+        });
+
+        modelBuilder.Entity<ActivityLog>(entity =>
+        {
+            entity.HasIndex(a => a.CreatedAt);
+            entity.HasIndex(a => a.ProjectId);
+            entity.HasIndex(a => a.Source);
         });
     }
 }
