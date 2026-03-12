@@ -276,7 +276,21 @@ async function gitHasChanges(cwd) {
 
 async function gitCommit(cwd, title) {
   await git(cwd, ["add", "-A"]);
-  await git(cwd, ["commit", "-m", `${title}\n\nEjecutado por Jeff Orchestrator via ${config.provider}`]);
+
+  // Generate a commit message based on actual changes
+  let commitMsg = title;
+  try {
+    const diff = await git(cwd, ["diff", "--cached", "--stat"]);
+    const changedFiles = diff.trim().split("\n").filter(l => l.trim()).slice(0, -1); // Remove summary line
+    if (changedFiles.length > 0) {
+      const fileNames = changedFiles.map(l => l.trim().split(/\s+/)[0]).filter(Boolean);
+      commitMsg = `${title}\n\nArchivos modificados:\n${fileNames.map(f => `- ${f}`).join("\n")}`;
+    }
+  } catch {
+    // fallback to just title
+  }
+
+  await git(cwd, ["commit", "-m", commitMsg]);
 }
 
 async function gitPush(cwd, project) {
