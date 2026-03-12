@@ -464,6 +464,20 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
 .analysis-timeline-badge--recs { background: var(--primary-bg); color: var(--primary); }
 .analysis-timeline-footer { font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.25rem; }
 
+/* Project card progress */
+.project-progress { margin: 0.6rem 0 0.4rem; }
+.project-progress-bar { height: 6px; border-radius: 3px; background: var(--bg); display: flex; overflow: hidden; }
+.progress-segment { height: 100%; transition: width 0.3s ease; }
+.progress-segment--done { background: var(--primary); }
+.progress-segment--progress { background: var(--info); }
+.progress-segment--backlog { background: var(--text-muted); opacity: 0.4; }
+.project-progress-labels { display: flex; gap: 0.6rem; margin-top: 0.3rem; }
+.progress-label { font-size: 0.7rem; font-weight: 600; }
+.progress-label--done { color: var(--primary); }
+.progress-label--progress { color: var(--info); }
+.progress-label--backlog { color: var(--text-muted); }
+.repo-badge--working { background: var(--info-bg); color: var(--info); font-size: 0.68rem; padding: 0.15rem 0.45rem; border-radius: 999px; font-weight: 600; animation: orchPulse 2s infinite; }
+
 /* Collapsible sections */
 .collapsible-header { cursor: pointer; user-select: none; }
 .collapsible-header:hover { background: var(--bg); }

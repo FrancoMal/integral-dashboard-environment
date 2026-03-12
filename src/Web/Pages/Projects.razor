@@ -30,10 +30,59 @@ else if (projects.Count == 0)
 }
 else
 {
+    @* ── Stats generales ── *@
+    <div class="stats-grid">
+        <StatCard Icon="@SvgIcons.Folder" Value="@projects.Count.ToString()" Label="Proyectos activos" Variant="primary" />
+        <StatCard Icon="@SvgIcons.Clock" Value="@projects.Sum(p => p.BacklogCount).ToString()" Label="En backlog" Variant="info" />
+        <StatCard Icon="@SvgIcons.Refresh" Value="@projects.Sum(p => p.InProgressCount).ToString()" Label="En progreso" Variant="warning" />
+        <StatCard Icon="@SvgIcons.Check" Value="@projects.Sum(p => p.DoneCount).ToString()" Label="Completados" Variant="primary" />
+    </div>
+
+    @* ── Actividad reciente global ── *@
+    @if (recentActivity?.Items?.Count > 0)
+    {
+        <div class="card" style="margin-bottom:1.25rem;">
+            <div class="card-header collapsible-header" @onclick="@(() => activityCollapsed = !activityCollapsed)">
+                <div style="display:flex; align-items:center; gap:0.5rem;">
+                    <span class="collapse-arrow @(activityCollapsed ? "" : "open")">&#9654;</span>
+                    <h3>Actividad reciente <span class="collapse-count">(@recentActivity.Items.Count)</span></h3>
+                </div>
+            </div>
+            @if (!activityCollapsed)
+            {
+                <div class="card-body" style="padding:0;">
+                    <div class="activities-list" style="padding:0.5rem 1rem;">
+                        @foreach (var item in recentActivity.Items.Take(8))
+                        {
+                            <div class="activity-item activity-item--@NormalizeStatus(item.Status)" style="padding:0.5rem 0.65rem;">
+                                <div class="activity-item-icon" style="width:28px; height:28px; min-width:28px;">
+                                    @GetIcon(item.Source)
+                                </div>
+                                <div class="activity-item-body">
+                                    <div class="activity-item-title" style="font-size:0.82rem;">@item.Title</div>
+                                    <div class="activity-item-meta">
+                                        @if (!string.IsNullOrEmpty(item.ProjectName))
+                                        {
+                                            <span class="activity-project-link" @onclick="@(() => NavigateToProject(item.ProjectId))">@item.ProjectName</span>
+                                            <span>·</span>
+                                        }
+                                        <span>@FormatDate(item.Timestamp)</span>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @* ── Tarjetas de proyectos ── *@
     <div class="projects-grid">
         @foreach (var project in projects)
         {
-            <div class="project-card">
+            var totalItems = project.BacklogCount + project.InProgressCount + project.DoneCount;
+            <div class="project-card project-card--clickable" @onclick="@(() => Navigation.NavigateTo($"/proyecto/{project.Id}"))">
                 <div class="project-header">
                     <div class="project-name-row">
                         <span class="repo-icon">@SvgIcons.Code</span>
@@ -41,6 +90,10 @@ else
                         @if (project.IsPrivate)
                         {
                             <span class="repo-badge repo-badge--private">Privado</span>
+                        }
+                        @if (project.InProgressCount > 0)
+                        {
+                            <span class="repo-badge repo-badge--working">Trabajando</span>
                         }
                     </div>
                 </div>
@@ -53,6 +106,42 @@ else
                     {
                         <p class="repo-description text-muted">Sin descripcion</p>
                     }
+
+                    @* ── Progress bar ── *@
+                    @if (totalItems > 0)
+                    {
+                        <div class="project-progress">
+                            <div class="project-progress-bar">
+                                @if (project.DoneCount > 0)
+                                {
+                                    <div class="progress-segment progress-segment--done" style="width:@((project.DoneCount * 100.0 / totalItems).ToString("F0"))%"></div>
+                                }
+                                @if (project.InProgressCount > 0)
+                                {
+                                    <div class="progress-segment progress-segment--progress" style="width:@((project.InProgressCount * 100.0 / totalItems).ToString("F0"))%"></div>
+                                }
+                                @if (project.BacklogCount > 0)
+                                {
+                                    <div class="progress-segment progress-segment--backlog" style="width:@((project.BacklogCount * 100.0 / totalItems).ToString("F0"))%"></div>
+                                }
+                            </div>
+                            <div class="project-progress-labels">
+                                @if (project.DoneCount > 0)
+                                {
+                                    <span class="progress-label progress-label--done">@project.DoneCount listo</span>
+                                }
+                                @if (project.InProgressCount > 0)
+                                {
+                                    <span class="progress-label progress-label--progress">@project.InProgressCount en progreso</span>
+                                }
+                                @if (project.BacklogCount > 0)
+                                {
+                                    <span class="progress-label progress-label--backlog">@project.BacklogCount pendiente</span>
+                                }
+                            </div>
+                        </div>
+                    }
+
                     <div class="repo-meta">
                         @if (!string.IsNullOrEmpty(project.Language))
                         {
@@ -61,10 +150,25 @@ else
                                 @project.Language
                             </span>
                         }
-                        <span class="repo-meta-item">Importado @project.ImportedAt.ToString("dd MMM yyyy")</span>
+                        @if (project.RecommendationCount > 0)
+                        {
+                            <span class="repo-meta-item">@project.RecommendationCount recs</span>
+                        }
+                        @if (project.PendingFeatureCount > 0)
+                        {
+                            <span class="repo-meta-item">@project.PendingFeatureCount features</span>
+                        }
+                        @if (project.LastAnalyzedAt.HasValue)
+                        {
+                            <span class="repo-meta-item">Analizado @FormatDate(project.LastAnalyzedAt.Value)</span>
+                        }
+                        else
+                        {
+                            <span class="repo-meta-item">Sin analizar</span>
+                        }
                     </div>
                 </div>
-                <div class="project-actions">
+                <div class="project-actions" @onclick:stopPropagation="true">
                     <a href="@project.HtmlUrl" target="_blank" rel="noopener" class="repo-btn repo-btn--go">
                         Abrir en GitHub
                     </a>
@@ -80,7 +184,9 @@ else
 
 @code {
     private List<ProjectDto> projects = new();
+    private ActivitySummaryDto? recentActivity;
     private bool loading = true;
+    private bool activityCollapsed;
 
     protected override async Task OnInitializedAsync()
     {
@@ -92,9 +198,10 @@ else
         loading = true;
         try
         {
-            var result = await Api.GetProjectsAsync();
-            if (result != null)
-                projects = result;
+            var projectsTask = Api.GetProjectsAsync();
+            var activityTask = Api.GetActivitiesAsync();
+            projects = await projectsTask ?? new();
+            recentActivity = await activityTask;
         }
         catch
         {
@@ -104,6 +211,12 @@ else
         {
             loading = false;
         }
+    }
+
+    private void NavigateToProject(int? projectId)
+    {
+        if (projectId.HasValue)
+            Navigation.NavigateTo($"/proyecto/{projectId}");
     }
 
     private async Task RemoveProject(ProjectDto project)
@@ -118,6 +231,32 @@ else
         {
             Toast.Error($"Error al quitar '{project.Name}'");
         }
+    }
+
+    private string NormalizeStatus(string status) => status?.ToLowerInvariant() switch
+    {
+        "done" or "completed" => "done",
+        "in_progress" or "running" => "progress",
+        _ => "pending"
+    };
+
+    private MarkupString GetIcon(string source) => source?.ToLowerInvariant() switch
+    {
+        "github" => SvgIcons.GitHub,
+        "backlog" => SvgIcons.Folder,
+        "analisis" => SvgIcons.Memory,
+        "features" => SvgIcons.Code,
+        "orquestador" => SvgIcons.Refresh,
+        _ => SvgIcons.Clock
+    };
+
+    private string FormatDate(DateTime date)
+    {
+        var diff = DateTime.UtcNow - date;
+        if (diff.TotalMinutes < 60) return $"hace {(int)diff.TotalMinutes} min";
+        if (diff.TotalHours < 24) return $"hace {(int)diff.TotalHours}h";
+        if (diff.TotalDays < 30) return $"hace {(int)diff.TotalDays}d";
+        return date.ToString("dd MMM yyyy");
     }
 
     private string GetLanguageColor(string lang) => lang?.ToLower() switch

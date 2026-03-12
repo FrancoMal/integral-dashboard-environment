@@ -12,4 +12,11 @@ public class ProjectDto
     public bool IsPrivate { get; set; }
     public DateTime ImportedAt { get; set; }
     public bool IsActive { get; set; }
+    public int BacklogCount { get; set; }
+    public int InProgressCount { get; set; }
+    public int DoneCount { get; set; }
+    public int RecommendationCount { get; set; }
+    public int PendingFeatureCount { get; set; }
+    public DateTime? LastAnalyzedAt { get; set; }
+    public int AnalysisCount { get; set; }
 }

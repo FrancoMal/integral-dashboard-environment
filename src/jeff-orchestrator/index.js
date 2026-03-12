@@ -31,6 +31,8 @@ const dashboard = new DashboardClient(
 );
 
 let isWorking = false;
+let currentWorkItem = null; // Track current item for graceful shutdown
+let currentProjectId = null;
 const failCounts = new Map(); // workItemId → number of failures
 
 // ── Heartbeat ──────────────────────────────────────────
@@ -125,6 +127,10 @@ async function processWorkItem(project, detail, item) {
       source: "orquestador",
       status: "in_progress",
     });
+
+    // Track current item for graceful shutdown
+    currentWorkItem = item;
+    currentProjectId = project.id;
 
     await dashboard.updateWorkItemStatus(project.id, item.id, "in_progress");
 
@@ -227,6 +233,8 @@ async function processWorkItem(project, detail, item) {
     await heartbeat({ outputAppend: `\n\n❌ Error interno: ${err.message}\n` });
   } finally {
     isWorking = false;
+    currentWorkItem = null;
+    currentProjectId = null;
     await heartbeat({ status: "idle", currentTask: "" });
   }
 }
@@ -336,16 +344,34 @@ async function main() {
   setInterval(tick, config.pollInterval * 1000);
 }
 
-process.on("SIGINT", async () => {
-  console.log("\n[shutdown] Stopping...");
-  await heartbeat({ status: "offline" });
-  process.exit(0);
-});
+async function gracefulShutdown(signal) {
+  console.log(`\n[shutdown] ${signal} received`);
 
-process.on("SIGTERM", async () => {
+  // Return current work item to backlog if interrupted
+  if (currentWorkItem && currentProjectId) {
+    console.log(`[shutdown] Returning "${currentWorkItem.title}" to backlog`);
+    try {
+      await dashboard.updateWorkItemStatus(currentProjectId, currentWorkItem.id, "backlog");
+      await dashboard.logActivity({
+        projectId: currentProjectId,
+        projectName: "",
+        action: "interrupted",
+        title: `Interrumpido: ${currentWorkItem.title}`,
+        detail: `El orquestador fue detenido (${signal}). Tarea devuelta al backlog.`,
+        source: "orquestador",
+        status: "done",
+      });
+    } catch (err) {
+      console.error(`[shutdown] Could not reset item: ${err.message}`);
+    }
+  }
+
   await heartbeat({ status: "offline" });
   process.exit(0);
-});
+}
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
 main().catch((err) => {
   console.error("Fatal:", err);

@@ -100,7 +100,50 @@ public class GitHubController : ControllerBase
             .OrderByDescending(p => p.ImportedAt)
             .ToListAsync();
 
-        return Ok(projects);
+        var projectIds = projects.Select(p => p.Id).ToList();
+
+        var workItemStats = await _db.ProjectWorkItems
+            .Where(w => projectIds.Contains(w.ProjectId))
+            .GroupBy(w => new { w.ProjectId, w.Status })
+            .Select(g => new { g.Key.ProjectId, g.Key.Status, Count = g.Count() })
+            .ToListAsync();
+
+        var recCounts = await _db.ProjectRecommendations
+            .Where(r => projectIds.Contains(r.ProjectId))
+            .GroupBy(r => r.ProjectId)
+            .Select(g => new { ProjectId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var featureCounts = await _db.ProjectFeatures
+            .Where(f => projectIds.Contains(f.ProjectId) && !f.AddedToBacklog)
+            .GroupBy(f => f.ProjectId)
+            .Select(g => new { ProjectId = g.Key, Count = g.Count() })
+            .ToListAsync();
+
+        var lastAnalysis = await _db.ProjectAnalyses
+            .Where(a => projectIds.Contains(a.ProjectId))
+            .GroupBy(a => a.ProjectId)
+            .Select(g => new { ProjectId = g.Key, LastAt = g.Max(a => a.AnalyzedAt), Count = g.Count() })
+            .ToListAsync();
+
+        var result = projects.Select(p =>
+        {
+            var wi = workItemStats.Where(w => w.ProjectId == p.Id).ToList();
+            return new
+            {
+                p.Id, p.GitHubRepoId, p.Name, p.FullName, p.Description,
+                p.HtmlUrl, p.Language, p.IsPrivate, p.ImportedAt,
+                backlogCount = wi.Where(w => w.Status == "backlog").Sum(w => w.Count),
+                inProgressCount = wi.Where(w => w.Status == "in_progress").Sum(w => w.Count),
+                doneCount = wi.Where(w => w.Status == "done").Sum(w => w.Count),
+                recommendationCount = recCounts.FirstOrDefault(r => r.ProjectId == p.Id)?.Count ?? 0,
+                pendingFeatureCount = featureCounts.FirstOrDefault(f => f.ProjectId == p.Id)?.Count ?? 0,
+                lastAnalyzedAt = lastAnalysis.FirstOrDefault(a => a.ProjectId == p.Id)?.LastAt,
+                analysisCount = lastAnalysis.FirstOrDefault(a => a.ProjectId == p.Id)?.Count ?? 0
+            };
+        });
+
+        return Ok(result);
     }
 
     [HttpDelete("projects/{id}")]
