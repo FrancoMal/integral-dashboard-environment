@@ -188,7 +188,8 @@ public class GitHubController : ControllerBase
                 r.Selected,
                 r.AddedToBacklog,
                 r.UserNotes,
-                r.CreatedAt
+                r.CreatedAt,
+                r.AnalysisId
             }),
             workItems = workItems.Select(w => new
             {
@@ -780,6 +781,25 @@ public class GitHubController : ControllerBase
         return NoContent();
     }
 
+    [HttpPost("projects/{id}/features/custom")]
+    public async Task<IActionResult> CreateCustomFeature(int id, [FromBody] CreateCustomFeatureRequest request)
+    {
+        var project = await _db.Projects.FindAsync(id);
+        if (project == null || !project.IsActive) return NotFound();
+
+        _db.ProjectFeatures.Add(new ProjectFeature
+        {
+            ProjectId = id,
+            Title = request.Title,
+            Description = request.Description,
+            Implementation = request.Implementation ?? "",
+            FilesToModify = "",
+            Complexity = "media"
+        });
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
+
     [HttpGet("user")]
     public async Task<IActionResult> GetGitHubUser()
     {
@@ -907,4 +927,11 @@ public class FeatureBacklogRequest
 public class UpdateStatusRequest
 {
     public string Status { get; set; } = "backlog";
+}
+
+public class CreateCustomFeatureRequest
+{
+    public string Title { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string? Implementation { get; set; }
 }

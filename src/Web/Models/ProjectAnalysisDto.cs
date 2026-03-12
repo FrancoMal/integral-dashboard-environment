@@ -11,6 +11,7 @@ public class ProjectRecommendationDto
     public bool AddedToBacklog { get; set; }
     public string UserNotes { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public int? AnalysisId { get; set; }
 }
 
 public class ProjectWorkItemDto

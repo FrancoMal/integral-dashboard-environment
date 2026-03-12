@@ -104,6 +104,16 @@ public class ApiClient
         await PostAsync<object>($"/api/github/projects/{projectId}/recommendations/selection", new { recommendationId, selected });
     }
 
+    public async Task UpdateWorkItemStatusAsync(int projectId, int itemId, string status)
+    {
+        await PostAsync<object>($"/api/github/projects/{projectId}/workitems/{itemId}/status", new { status });
+    }
+
+    public async Task CreateCustomFeatureAsync(int projectId, string title, string description, string implementation)
+    {
+        await PostAsync<object>($"/api/github/projects/{projectId}/features/custom", new { title, description, implementation });
+    }
+
     public async Task<int> MoveSelectedRecommendationsToBacklogAsync(int projectId)
     {
         var result = await PostAsync<BacklogMoveResultDto>($"/api/github/projects/{projectId}/backlog", new { });
