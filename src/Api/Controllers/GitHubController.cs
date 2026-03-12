@@ -766,6 +766,20 @@ public class GitHubController : ControllerBase
         return Ok(new { moved = selected.Count });
     }
 
+    [HttpPost("projects/{id}/workitems/{itemId}/status")]
+    public async Task<IActionResult> UpdateWorkItemStatus(int id, int itemId, [FromBody] UpdateStatusRequest request)
+    {
+        var item = await _db.ProjectWorkItems
+            .FirstOrDefaultAsync(w => w.ProjectId == id && w.Id == itemId);
+
+        if (item == null)
+            return NotFound();
+
+        item.Status = request.Status;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
     [HttpGet("user")]
     public async Task<IActionResult> GetGitHubUser()
     {
@@ -888,4 +902,9 @@ public class UpdateNotesRequest
 public class FeatureBacklogRequest
 {
     public List<int> FeatureIds { get; set; } = new();
+}
+
+public class UpdateStatusRequest
+{
+    public string Status { get; set; } = "backlog";
 }

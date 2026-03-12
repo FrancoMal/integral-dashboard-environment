@@ -1,4 +1,5 @@
 using Api.Data;
+using Api.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -81,4 +82,33 @@ public class DashboardController : ControllerBase
             items
         });
     }
+
+    [HttpPost("activity-log")]
+    public async Task<IActionResult> CreateActivityLog([FromBody] ActivityLogRequest request)
+    {
+        _db.ActivityLogs.Add(new ActivityLog
+        {
+            ProjectId = request.ProjectId,
+            ProjectName = request.ProjectName ?? "",
+            Action = request.Action ?? "unknown",
+            Title = request.Title ?? "",
+            Detail = request.Detail ?? "",
+            Source = request.Source ?? "sistema",
+            Status = request.Status ?? "done"
+        });
+
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
+}
+
+public class ActivityLogRequest
+{
+    public int? ProjectId { get; set; }
+    public string? ProjectName { get; set; }
+    public string? Action { get; set; }
+    public string? Title { get; set; }
+    public string? Detail { get; set; }
+    public string? Source { get; set; }
+    public string? Status { get; set; }
 }
