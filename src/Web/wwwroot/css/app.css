@@ -464,6 +464,15 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
 .analysis-timeline-badge--recs { background: var(--primary-bg); color: var(--primary); }
 .analysis-timeline-footer { font-size: 0.75rem; color: var(--text-muted); border-top: 1px solid var(--border); padding-top: 0.5rem; margin-top: 0.25rem; }
 
+/* Collapsible sections */
+.collapsible-header { cursor: pointer; user-select: none; }
+.collapsible-header:hover { background: var(--bg); }
+.collapse-arrow { font-size: 0.7rem; color: var(--text-muted); transition: transform 0.2s ease; display: inline-block; }
+.collapse-arrow.open { transform: rotate(90deg); }
+.collapse-count { font-size: 0.8rem; font-weight: 400; color: var(--text-muted); }
+.collapsed-body { padding: 0.5rem 1rem !important; }
+.collapsed-summary { margin: 0; font-size: 0.82rem; color: var(--text-muted); }
+
 /* Work item remove button */
 .work-item-meta { display: flex; justify-content: space-between; align-items: center; }
 .work-item-remove-btn { font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: var(--radius-sm); border: 1px solid var(--border); background: transparent; color: var(--text-muted); cursor: pointer; transition: all var(--transition); }

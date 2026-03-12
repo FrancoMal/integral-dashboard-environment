@@ -264,17 +264,26 @@ else
         {
             <div class="detail-section">
                 <div class="card">
-                    <div class="card-header work-card-header">
-                        <div>
-                            <h3>Recomendaciones del analisis</h3>
-                            <p class="work-card-subtitle">Selecciona las que quieras pasar al backlog. Podes agregar notas propias a cada una.</p>
+                    <div class="card-header work-card-header collapsible-header" @onclick="@(() => recsCollapsed = !recsCollapsed)">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span class="collapse-arrow @(recsCollapsed ? "" : "open")">&#9654;</span>
+                            <div>
+                                <h3>Recomendaciones del analisis <span class="collapse-count">(@detail.Recommendations.Count)</span></h3>
+                            </div>
                         </div>
-                        <button class="repo-btn repo-btn--import" @onclick="MoveSelectedToBacklog" disabled="@(movingToBacklog || SelectedCount == 0)">
-                            @(movingToBacklog ? "Moviendo..." : $"Pasar al backlog ({SelectedCount})")
-                        </button>
+                        @if (!recsCollapsed)
+                        {
+                            <button class="repo-btn repo-btn--import" @onclick="MoveSelectedToBacklog" @onclick:stopPropagation="true" disabled="@(movingToBacklog || SelectedCount == 0)">
+                                @(movingToBacklog ? "Moviendo..." : $"Pasar al backlog ({SelectedCount})")
+                            </button>
+                        }
                     </div>
-                    <div class="card-body">
-                        @if (detail.Recommendations.Count == 0)
+                    <div class="card-body @(recsCollapsed ? "collapsed-body" : "")">
+                        @if (recsCollapsed)
+                        {
+                            <p class="collapsed-summary">@detail.Recommendations.Count recomendaciones · @detail.Recommendations.Count(r => r.AddedToBacklog) en backlog</p>
+                        }
+                        else if (detail.Recommendations.Count == 0)
                         {
                             <div class="work-empty-state">
                                 <div class="template-message-icon">@SvgIcons.Check</div>
@@ -356,16 +365,18 @@ else
             @* ---- Ideas de Features (dentro de Recomendaciones) ---- *@
             <div class="detail-section">
                 <div class="card">
-                    <div class="card-header work-card-header">
-                        <div>
-                            <h3>Ideas de Features</h3>
-                            <p class="work-card-subtitle">Features nuevas propuestas por IA, con plan de implementacion listo para Claude Code.</p>
+                    <div class="card-header work-card-header collapsible-header" @onclick="@(() => featuresCollapsed = !featuresCollapsed)">
+                        <div style="display:flex; align-items:center; gap:0.5rem;">
+                            <span class="collapse-arrow @(featuresCollapsed ? "" : "open")">&#9654;</span>
+                            <div>
+                                <h3>Ideas de Features <span class="collapse-count">(@detail.Features.Count)</span></h3>
+                            </div>
                         </div>
-                        <div style="display:flex; gap:0.5rem; align-items:center;">
+                        <div style="display:flex; gap:0.5rem; align-items:center;" @onclick:stopPropagation="true">
                             <button class="repo-btn repo-btn--analyze" style="font-size:0.8rem; padding:0.4rem 0.85rem;" @onclick="@(() => showCustomFeatureForm = !showCustomFeatureForm)">
                                 @(showCustomFeatureForm ? "Cancelar" : "Agregar feature")
                             </button>
-                            @if (detail.Features.Any(f => selectedFeatureIds.Contains(f.Id) && !f.AddedToBacklog))
+                            @if (!featuresCollapsed && detail.Features.Any(f => selectedFeatureIds.Contains(f.Id) && !f.AddedToBacklog))
                             {
                                 <button class="repo-btn repo-btn--import" @onclick="MoveFeaturesToBacklog" disabled="@movingToBacklog">
                                     @(movingToBacklog ? "Moviendo..." : $"Pasar al backlog ({selectedFeatureIds.Count(id => detail.Features.Any(f => f.Id == id && !f.AddedToBacklog))})")
@@ -373,8 +384,12 @@ else
                             }
                         </div>
                     </div>
-                    <div class="card-body">
-                        @if (showCustomFeatureForm)
+                    <div class="card-body @(featuresCollapsed && !showCustomFeatureForm ? "collapsed-body" : "")">
+                        @if (featuresCollapsed && !showCustomFeatureForm)
+                        {
+                            <p class="collapsed-summary">@detail.Features.Count features · @detail.Features.Count(f => f.AddedToBacklog) en backlog</p>
+                        }
+                        else if (showCustomFeatureForm)
                         {
                             <div class="custom-feature-form">
                                 <div class="custom-feature-field">
@@ -712,6 +727,8 @@ else
     private HashSet<int> selectedFeatureIds = new();
     private int expandedFeatureId;
     private bool showCustomFeatureForm;
+    private bool recsCollapsed;
+    private bool featuresCollapsed;
     private string customFeatureTitle = "";
     private string customFeatureDescription = "";
     private string customFeatureImplementation = "";

@@ -149,7 +149,10 @@ public class ApiClient
         }
 
         response.EnsureSuccessStatusCode();
-        return await response.Content.ReadFromJsonAsync<T>();
+        var text = await response.Content.ReadAsStringAsync();
+        if (string.IsNullOrWhiteSpace(text) || response.StatusCode == HttpStatusCode.NoContent)
+            return default;
+        return System.Text.Json.JsonSerializer.Deserialize<T>(text, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
     }
 
     private async Task DeleteAsync(string url)
