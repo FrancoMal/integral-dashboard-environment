@@ -95,9 +95,10 @@ else
         <button class="detail-tab @(activeTab == "actividades" ? "active" : "")" @onclick="@(() => activeTab = "actividades")">Actividades</button>
         <button class="detail-tab @(activeTab == "recomendaciones" ? "active" : "")" @onclick="@(() => activeTab = "recomendaciones")">
             Recomendaciones
-            @if ((detail.Recommendations.Count + detail.Features.Count) > 0)
+            @{var pendingCount = detail.Recommendations.Count + detail.Features.Count(f => !f.AddedToBacklog);}
+            @if (pendingCount > 0)
             {
-                <span class="tab-badge">@(detail.Recommendations.Count + detail.Features.Count)</span>
+                <span class="tab-badge">@pendingCount</span>
             }
         </button>
         <button class="detail-tab @(activeTab == "trabajo" ? "active" : "")" @onclick="@(() => activeTab = "trabajo")">Trabajo</button>
@@ -369,7 +370,7 @@ else
                         <div style="display:flex; align-items:center; gap:0.5rem;">
                             <span class="collapse-arrow @(featuresCollapsed ? "" : "open")">&#9654;</span>
                             <div>
-                                <h3>Ideas de Features <span class="collapse-count">(@detail.Features.Count)</span></h3>
+                                <h3>Ideas de Features <span class="collapse-count">(@PendingFeatures.Count())</span></h3>
                             </div>
                         </div>
                         <div style="display:flex; gap:0.5rem; align-items:center;" @onclick:stopPropagation="true">
@@ -387,43 +388,45 @@ else
                     <div class="card-body @(featuresCollapsed && !showCustomFeatureForm ? "collapsed-body" : "")">
                         @if (featuresCollapsed && !showCustomFeatureForm)
                         {
-                            <p class="collapsed-summary">@detail.Features.Count features · @detail.Features.Count(f => f.AddedToBacklog) en backlog</p>
+                            <p class="collapsed-summary">@PendingFeatures.Count() features pendientes · @detail.Features.Count(f => f.AddedToBacklog) en backlog</p>
                         }
-                        else if (showCustomFeatureForm)
+                        else
                         {
-                            <div class="custom-feature-form">
-                                <div class="custom-feature-field">
-                                    <label>Titulo</label>
-                                    <input type="text" class="note-textarea" style="padding:0.5rem 0.65rem; min-height:auto;" @bind="customFeatureTitle" placeholder="Nombre de la feature..." />
+                            @if (showCustomFeatureForm)
+                            {
+                                <div class="custom-feature-form">
+                                    <div class="custom-feature-field">
+                                        <label>Titulo</label>
+                                        <input type="text" class="note-textarea" style="padding:0.5rem 0.65rem; min-height:auto;" @bind="customFeatureTitle" placeholder="Nombre de la feature..." />
+                                    </div>
+                                    <div class="custom-feature-field">
+                                        <label>Descripcion</label>
+                                        <textarea class="note-textarea" rows="2" @bind="customFeatureDescription" placeholder="Que hace esta feature..."></textarea>
+                                    </div>
+                                    <div class="custom-feature-field">
+                                        <label>Plan de implementacion (opcional)</label>
+                                        <textarea class="note-textarea" rows="3" @bind="customFeatureImplementation" placeholder="Pasos para implementarla..."></textarea>
+                                    </div>
+                                    <div class="note-edit-actions">
+                                        <button class="note-btn note-btn--save" @onclick="SaveCustomFeature" disabled="@(savingCustomFeature || string.IsNullOrWhiteSpace(customFeatureTitle))">
+                                            @(savingCustomFeature ? "Guardando..." : "Guardar feature")
+                                        </button>
+                                        <button class="note-btn note-btn--cancel" @onclick="@(() => { showCustomFeatureForm = false; customFeatureTitle = ""; customFeatureDescription = ""; customFeatureImplementation = ""; })">Cancelar</button>
+                                    </div>
                                 </div>
-                                <div class="custom-feature-field">
-                                    <label>Descripcion</label>
-                                    <textarea class="note-textarea" rows="2" @bind="customFeatureDescription" placeholder="Que hace esta feature..."></textarea>
-                                </div>
-                                <div class="custom-feature-field">
-                                    <label>Plan de implementacion (opcional)</label>
-                                    <textarea class="note-textarea" rows="3" @bind="customFeatureImplementation" placeholder="Pasos para implementarla..."></textarea>
-                                </div>
-                                <div class="note-edit-actions">
-                                    <button class="note-btn note-btn--save" @onclick="SaveCustomFeature" disabled="@(savingCustomFeature || string.IsNullOrWhiteSpace(customFeatureTitle))">
-                                        @(savingCustomFeature ? "Guardando..." : "Guardar feature")
-                                    </button>
-                                    <button class="note-btn note-btn--cancel" @onclick="@(() => { showCustomFeatureForm = false; customFeatureTitle = ""; customFeatureDescription = ""; customFeatureImplementation = ""; })">Cancelar</button>
-                                </div>
-                            </div>
-                        }
+                            }
 
-                        @if (detail.Features.Count == 0 && !showCustomFeatureForm)
-                        {
-                            <div class="work-empty-state">
-                                <div class="template-message-icon">@SvgIcons.Code</div>
-                                <p>Todavia no hay features propuestas. Usa <strong>Analizar features</strong> para que la IA genere ideas, o <strong>Agregar feature</strong> para crear una propia.</p>
-                            </div>
-                        }
-                        else if (detail.Features.Count > 0)
-                        {
-                            <div class="features-list">
-                                @foreach (var feature in detail.Features)
+                            @if (!PendingFeatures.Any() && !showCustomFeatureForm)
+                            {
+                                <div class="work-empty-state">
+                                    <div class="template-message-icon">@SvgIcons.Code</div>
+                                    <p>Todavia no hay features pendientes. Usa <strong>Analizar features</strong> para que la IA genere ideas, o <strong>Agregar feature</strong> para crear una propia.</p>
+                                </div>
+                            }
+                            else if (PendingFeatures.Any())
+                            {
+                                <div class="features-list">
+                                    @foreach (var feature in PendingFeatures)
                                 {
                                     <div class="feature-card @(feature.AddedToBacklog ? "is-added" : "") @(expandedFeatureId == feature.Id ? "is-expanded" : "")">
                                         <div class="feature-card-header">
@@ -490,6 +493,7 @@ else
                                     </div>
                                 }
                             </div>
+                            }
                         }
                     </div>
                 </div>
@@ -751,6 +755,10 @@ else
     private IEnumerable<ProjectRecommendationDto> FilteredRecommendations => detail?.Recommendations
         .Where(r => categoryFilter == null || r.Category == categoryFilter)
         ?? Enumerable.Empty<ProjectRecommendationDto>();
+
+    private IEnumerable<ProjectFeatureDto> PendingFeatures => detail?.Features
+        .Where(f => !f.AddedToBacklog)
+        ?? Enumerable.Empty<ProjectFeatureDto>();
 
     protected override async Task OnInitializedAsync()
     {
