@@ -53,6 +53,19 @@ public class AnalyzeFeaturesResultDto
     public int TotalFeatures { get; set; }
 }
 
+public class OrchestratorStatusDto
+{
+    public string Status { get; set; } = "offline";
+    public string Provider { get; set; } = string.Empty;
+    public int? CurrentProjectId { get; set; }
+    public string CurrentProjectName { get; set; } = string.Empty;
+    public string CurrentTask { get; set; } = string.Empty;
+    public string Output { get; set; } = string.Empty;
+    public DateTime? StartedAt { get; set; }
+    public DateTime? LastHeartbeat { get; set; }
+    public bool IsAlive { get; set; }
+}
+
 public class ProjectAnalysisEntryDto
 {
     public int Id { get; set; }

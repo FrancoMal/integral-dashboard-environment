@@ -1,7 +1,7 @@
 /**
  * Client for the Jeff Ops Dashboard API.
  * Handles auth and provides methods for the orchestrator to
- * read work items and report activity.
+ * read work items, report activity, and send heartbeats.
  */
 export class DashboardClient {
   #baseUrl;
@@ -20,24 +20,12 @@ export class DashboardClient {
     const res = await fetch(`${this.#baseUrl}/api/auth/login`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        username: this.#user,
-        password: this.#pass,
-      }),
+      body: JSON.stringify({ username: this.#user, password: this.#pass }),
     });
     if (!res.ok) throw new Error(`Login failed: ${res.status}`);
     const data = await res.json();
     this.#token = data.token;
     return data;
-  }
-
-  async getWorkItems(projectId, status = "backlog") {
-    const detail = await this.#get(
-      `/api/github/projects/${projectId}/detail`
-    );
-    if (!detail) return [];
-
-    return (detail.workItems || []).filter((w) => w.status === status);
   }
 
   async getProjects() {
@@ -49,7 +37,6 @@ export class DashboardClient {
   }
 
   async updateWorkItemStatus(projectId, workItemId, newStatus) {
-    // This endpoint needs to be added to the API
     return await this.#post(
       `/api/github/projects/${projectId}/workitems/${workItemId}/status`,
       { status: newStatus }
@@ -58,6 +45,10 @@ export class DashboardClient {
 
   async logActivity(activity) {
     return await this.#post("/api/dashboard/activity-log", activity);
+  }
+
+  async heartbeat(data) {
+    return await this.#post("/api/dashboard/orchestrator/heartbeat", data);
   }
 
   async #get(path) {

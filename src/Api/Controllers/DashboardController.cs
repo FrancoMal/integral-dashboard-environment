@@ -83,6 +83,63 @@ public class DashboardController : ControllerBase
         });
     }
 
+    [HttpGet("orchestrator/status")]
+    public async Task<IActionResult> GetOrchestratorStatus()
+    {
+        var state = await _db.OrchestratorStates.OrderByDescending(s => s.Id).FirstOrDefaultAsync();
+        if (state == null)
+            return Ok(new { status = "offline", provider = "", currentTask = "", output = "", lastHeartbeat = (DateTime?)null });
+
+        // If no heartbeat in 90s, consider offline
+        var isAlive = (DateTime.UtcNow - state.LastHeartbeat).TotalSeconds < 90;
+
+        return Ok(new
+        {
+            status = isAlive ? state.Status : "offline",
+            state.Provider,
+            state.CurrentProjectId,
+            state.CurrentProjectName,
+            state.CurrentTask,
+            output = state.Output,
+            state.StartedAt,
+            state.LastHeartbeat,
+            isAlive
+        });
+    }
+
+    [HttpPost("orchestrator/heartbeat")]
+    public async Task<IActionResult> OrchestratorHeartbeat([FromBody] OrchestratorHeartbeatRequest request)
+    {
+        var state = await _db.OrchestratorStates.OrderByDescending(s => s.Id).FirstOrDefaultAsync();
+
+        if (state == null)
+        {
+            state = new OrchestratorState();
+            _db.OrchestratorStates.Add(state);
+        }
+
+        state.Status = request.Status ?? "idle";
+        state.Provider = request.Provider ?? "";
+        state.CurrentProjectId = request.CurrentProjectId;
+        state.CurrentProjectName = request.CurrentProjectName ?? "";
+        state.CurrentTask = request.CurrentTask ?? "";
+        state.LastHeartbeat = DateTime.UtcNow;
+
+        if (!string.IsNullOrEmpty(request.OutputAppend))
+        {
+            // Keep last 10KB of output
+            state.Output = (state.Output + request.OutputAppend).Length > 10000
+                ? (state.Output + request.OutputAppend)[^10000..]
+                : state.Output + request.OutputAppend;
+        }
+
+        if (request.ClearOutput == true)
+            state.Output = "";
+
+        await _db.SaveChangesAsync();
+        return Ok();
+    }
+
     [HttpPost("activity-log")]
     public async Task<IActionResult> CreateActivityLog([FromBody] ActivityLogRequest request)
     {
@@ -100,6 +157,17 @@ public class DashboardController : ControllerBase
         await _db.SaveChangesAsync();
         return Ok();
     }
+}
+
+public class OrchestratorHeartbeatRequest
+{
+    public string? Status { get; set; }
+    public string? Provider { get; set; }
+    public int? CurrentProjectId { get; set; }
+    public string? CurrentProjectName { get; set; }
+    public string? CurrentTask { get; set; }
+    public string? OutputAppend { get; set; }
+    public bool? ClearOutput { get; set; }
 }
 
 public class ActivityLogRequest

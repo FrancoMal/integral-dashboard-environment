@@ -199,6 +199,23 @@ END
 ");
 
     await migrateDb.Database.ExecuteSqlRawAsync(@"
+IF OBJECT_ID(N'[OrchestratorStates]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [OrchestratorStates] (
+        [Id] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [Status] NVARCHAR(50) NOT NULL DEFAULT 'offline',
+        [Provider] NVARCHAR(100) NOT NULL DEFAULT '',
+        [CurrentProjectId] INT NULL,
+        [CurrentProjectName] NVARCHAR(255) NOT NULL DEFAULT '',
+        [CurrentTask] NVARCHAR(500) NOT NULL DEFAULT '',
+        [Output] NVARCHAR(MAX) NOT NULL DEFAULT '',
+        [StartedAt] DATETIME2 NOT NULL,
+        [LastHeartbeat] DATETIME2 NOT NULL
+    );
+END
+");
+
+    await migrateDb.Database.ExecuteSqlRawAsync(@"
 IF OBJECT_ID(N'[ActivityLogs]', N'U') IS NULL
 BEGIN
     CREATE TABLE [ActivityLogs] (

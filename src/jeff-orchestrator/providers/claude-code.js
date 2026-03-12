@@ -17,11 +17,18 @@ export class ClaudeCodeProvider extends BaseProvider {
     }
   }
 
-  async execute({ prompt, cwd, context }) {
+  /**
+   * @param {object} options
+   * @param {string} options.prompt
+   * @param {string} options.cwd
+   * @param {object} options.context
+   * @param {function} [options.onOutput] - Called with chunks of output for live streaming
+   */
+  async execute({ prompt, cwd, context, onOutput }) {
     const fullPrompt = this.#buildPrompt(prompt, context);
 
     try {
-      const result = await this.#run(
+      const result = await this.#runWithStreaming(
         [
           "-p",
           "--output-format",
@@ -31,7 +38,8 @@ export class ClaudeCodeProvider extends BaseProvider {
         ],
         cwd,
         TIMEOUT_MS,
-        fullPrompt
+        fullPrompt,
+        onOutput
       );
 
       if (result.exitCode !== 0) {
@@ -97,10 +105,9 @@ INSTRUCCIONES:
   }
 
   /**
-   * Spawns claude CLI as a child process.
-   * Uses spawn (not exec) to avoid shell injection.
+   * Runs claude CLI and streams stdout chunks via onOutput callback.
    */
-  #run(args, cwd, timeout, stdinData = null) {
+  #runWithStreaming(args, cwd, timeout, stdinData, onOutput) {
     return new Promise((resolve, reject) => {
       const child = spawn("claude", args, {
         cwd,
@@ -112,8 +119,15 @@ INSTRUCCIONES:
       let stdout = "";
       let stderr = "";
 
-      child.stdout.on("data", (d) => (stdout += d.toString()));
-      child.stderr.on("data", (d) => (stderr += d.toString()));
+      child.stdout.on("data", (d) => {
+        const chunk = d.toString();
+        stdout += chunk;
+        if (onOutput) onOutput(chunk);
+      });
+
+      child.stderr.on("data", (d) => {
+        stderr += d.toString();
+      });
 
       child.on("close", (exitCode) => {
         resolve({ exitCode, stdout: stdout.trim(), stderr: stderr.trim() });
@@ -126,5 +140,12 @@ INSTRUCCIONES:
       }
       child.stdin.end();
     });
+  }
+
+  /**
+   * Simple run without streaming (for version check etc.)
+   */
+  #run(args, cwd, timeout) {
+    return this.#runWithStreaming(args, cwd, timeout, null, null);
   }
 }

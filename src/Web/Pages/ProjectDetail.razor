@@ -1,5 +1,6 @@
 @page "/proyecto/{ProjectId:int}"
 @attribute [Authorize]
+@implements IDisposable
 @inject ApiClient Api
 @inject ToastService Toast
 @inject NavigationManager Navigation
@@ -460,6 +461,44 @@ else
         }
         else if (activeTab == "trabajo")
         {
+            @if (orchStatus != null && orchStatus.IsAlive)
+            {
+                <div class="detail-section">
+                    <div class="card orch-card orch-card--@orchStatus.Status">
+                        <div class="card-header work-card-header">
+                            <div>
+                                <h3>
+                                    <span class="orch-dot orch-dot--@orchStatus.Status"></span>
+                                    Orquestador
+                                    <span class="orch-status-label">@GetOrchStatusLabel(orchStatus.Status)</span>
+                                </h3>
+                                @if (!string.IsNullOrEmpty(orchStatus.Provider))
+                                {
+                                    <p class="work-card-subtitle">Proveedor: @orchStatus.Provider</p>
+                                }
+                            </div>
+                            @if (orchStatus.Status == "working" && !string.IsNullOrEmpty(orchStatus.CurrentTask))
+                            {
+                                <span class="recommendation-tag rec-cat--arquitectura">@orchStatus.CurrentProjectName</span>
+                            }
+                        </div>
+                        @if (orchStatus.Status == "working")
+                        {
+                            <div class="card-body">
+                                <div class="orch-task">Tarea: <strong>@orchStatus.CurrentTask</strong></div>
+                                @if (!string.IsNullOrEmpty(orchStatus.Output))
+                                {
+                                    <div class="orch-output-area">
+                                        <div class="feature-section-title">Sesion en vivo</div>
+                                        <pre class="orch-output">@orchStatus.Output</pre>
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+
             <div class="detail-section">
                 <div class="card">
                     <div class="card-header"><h3>Trabajo del proyecto</h3></div>
@@ -580,6 +619,8 @@ else
     private string editingNoteText = "";
     private HashSet<int> selectedFeatureIds = new();
     private int expandedFeatureId;
+    private OrchestratorStatusDto? orchStatus;
+    private System.Threading.Timer? orchPollTimer;
 
     private readonly (string Key, string Label, string Color, string HeaderClass)[] statuses =
     [
@@ -597,7 +638,22 @@ else
         .Where(r => categoryFilter == null || r.Category == categoryFilter)
         ?? Enumerable.Empty<ProjectRecommendationDto>();
 
-    protected override async Task OnInitializedAsync() => await LoadDetail();
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDetail();
+        await LoadOrchStatus();
+        // Poll orchestrator status every 5 seconds
+        orchPollTimer = new System.Threading.Timer(async _ =>
+        {
+            await LoadOrchStatus();
+            await InvokeAsync(StateHasChanged);
+        }, null, 5000, 5000);
+    }
+
+    public void Dispose()
+    {
+        orchPollTimer?.Dispose();
+    }
 
     private async Task LoadDetail()
     {
@@ -766,6 +822,20 @@ else
             Toast.Error("No se pudo guardar la nota");
         }
     }
+
+    private async Task LoadOrchStatus()
+    {
+        try { orchStatus = await Api.GetOrchestratorStatusAsync(); } catch { }
+    }
+
+    private string GetOrchStatusLabel(string status) => status switch
+    {
+        "working" => "Trabajando",
+        "scanning" => "Buscando tareas",
+        "idle" => "Esperando",
+        "error" => "Error",
+        _ => "Offline"
+    };
 
     private string GetCommitTitle(string message)
     {

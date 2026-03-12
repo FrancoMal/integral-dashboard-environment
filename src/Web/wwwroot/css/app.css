@@ -396,6 +396,24 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
 .rec-filter-btn--backlog.active { background: #f59e0b; border-color: #f59e0b; }
 .rec-filter-btn--orquestador.active { background: #8b5cf6; border-color: #8b5cf6; }
 
+/* --- Orchestrator Panel --- */
+.orch-card { border-left: 3px solid var(--text-muted); }
+.orch-card--working { border-left-color: var(--info); background: var(--info-bg); }
+.orch-card--idle { border-left-color: var(--primary); }
+.orch-card--scanning { border-left-color: var(--warning); }
+.orch-card--error { border-left-color: var(--danger); }
+.orch-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 0.4rem; vertical-align: middle; }
+.orch-dot--working { background: var(--info); animation: orchPulse 1.5s infinite; }
+.orch-dot--idle { background: var(--primary); }
+.orch-dot--scanning { background: var(--warning); animation: orchPulse 1s infinite; }
+.orch-dot--error { background: var(--danger); }
+.orch-dot--offline { background: var(--text-muted); }
+@keyframes orchPulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.orch-status-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; margin-left: 0.5rem; }
+.orch-task { font-size: 0.88rem; color: var(--text-primary); margin-bottom: 0.75rem; }
+.orch-output-area { margin-top: 0.5rem; }
+.orch-output { font-size: 0.78rem; background: var(--sidebar-bg); color: #e2e8f0; padding: 0.85rem; border-radius: var(--radius-sm); line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; font-family: 'Courier New', monospace; max-height: 400px; overflow-y: auto; margin: 0; border: 1px solid rgba(255,255,255,0.1); }
+
 /* --- Features --- */
 .features-list { display: flex; flex-direction: column; gap: 0.75rem; }
 .feature-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-bg); transition: all var(--transition); overflow: hidden; }

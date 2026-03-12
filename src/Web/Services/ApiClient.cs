@@ -73,6 +73,11 @@ public class ApiClient
         return await PostAsync<AnalyzeProjectResultDto>($"/api/github/projects/{projectId}/analyze", new { });
     }
 
+    public async Task<OrchestratorStatusDto?> GetOrchestratorStatusAsync()
+    {
+        return await GetAsync<OrchestratorStatusDto>("/api/dashboard/orchestrator/status");
+    }
+
     public async Task<AnalyzeFeaturesResultDto?> AnalyzeFeaturesAsync(int projectId)
     {
         return await PostAsync<AnalyzeFeaturesResultDto>($"/api/github/projects/{projectId}/features", new { });

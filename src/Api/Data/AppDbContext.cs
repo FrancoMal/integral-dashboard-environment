@@ -14,6 +14,7 @@ public class AppDbContext : DbContext
     public DbSet<ProjectAnalysis> ProjectAnalyses => Set<ProjectAnalysis>();
     public DbSet<ProjectFeature> ProjectFeatures => Set<ProjectFeature>();
     public DbSet<ActivityLog> ActivityLogs => Set<ActivityLog>();
+    public DbSet<OrchestratorState> OrchestratorStates => Set<OrchestratorState>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
