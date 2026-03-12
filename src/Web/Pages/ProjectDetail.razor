@@ -46,8 +46,11 @@ else
                         @detail.Project.Language
                     </span>
                 }
-                <button class="repo-btn repo-btn--analyze" @onclick="AnalyzeProject" disabled="@analyzing">
+                <button class="repo-btn repo-btn--analyze" @onclick="AnalyzeProject" disabled="@(analyzing || analyzingFeatures)">
                     @(analyzing ? "Analizando..." : "Analizar proyecto")
+                </button>
+                <button class="repo-btn repo-btn--features" @onclick="AnalyzeFeatures" disabled="@(analyzingFeatures || analyzing)">
+                    @(analyzingFeatures ? "Pensando features..." : "Analizar features")
                 </button>
                 <a href="@detail.Project.HtmlUrl" target="_blank" rel="noopener" class="repo-btn repo-btn--go">
                     Abrir en GitHub
@@ -89,6 +92,20 @@ else
     <div class="detail-tabs">
         <button class="detail-tab @(activeTab == "resumen" ? "active" : "")" @onclick="@(() => activeTab = "resumen")">Resumen</button>
         <button class="detail-tab @(activeTab == "actividades" ? "active" : "")" @onclick="@(() => activeTab = "actividades")">Actividades</button>
+        <button class="detail-tab @(activeTab == "recomendaciones" ? "active" : "")" @onclick="@(() => activeTab = "recomendaciones")">
+            Recomendaciones
+            @if (detail.Recommendations.Count > 0)
+            {
+                <span class="tab-badge">@detail.Recommendations.Count</span>
+            }
+        </button>
+        <button class="detail-tab @(activeTab == "features" ? "active" : "")" @onclick="@(() => activeTab = "features")">
+            Features
+            @if (detail.Features.Count > 0)
+            {
+                <span class="tab-badge tab-badge--features">@detail.Features.Count</span>
+            }
+        </button>
         <button class="detail-tab @(activeTab == "trabajo" ? "active" : "")" @onclick="@(() => activeTab = "trabajo")">Trabajo</button>
         <button class="detail-tab @(activeTab == "historial" ? "active" : "")" @onclick="@(() => activeTab = "historial")">
             Historial
@@ -249,7 +266,7 @@ else
                 </div>
             </div>
         }
-        else if (activeTab == "trabajo")
+        else if (activeTab == "recomendaciones")
         {
             <div class="detail-section">
                 <div class="card">
@@ -341,7 +358,108 @@ else
                     </div>
                 </div>
             </div>
-
+        }
+        else if (activeTab == "features")
+        {
+            <div class="detail-section">
+                <div class="card">
+                    <div class="card-header work-card-header">
+                        <div>
+                            <h3>Ideas de Features</h3>
+                            <p class="work-card-subtitle">Features nuevas propuestas por IA, con plan de implementacion listo para Claude Code.</p>
+                        </div>
+                        @if (detail.Features.Any(f => selectedFeatureIds.Contains(f.Id) && !f.AddedToBacklog))
+                        {
+                            <button class="repo-btn repo-btn--import" @onclick="MoveFeaturesToBacklog" disabled="@movingToBacklog">
+                                @(movingToBacklog ? "Moviendo..." : $"Pasar al backlog ({selectedFeatureIds.Count(id => detail.Features.Any(f => f.Id == id && !f.AddedToBacklog))})")
+                            </button>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (detail.Features.Count == 0)
+                        {
+                            <div class="work-empty-state">
+                                <div class="template-message-icon">@SvgIcons.Code</div>
+                                <p>Todavia no hay features propuestas. Usa <strong>Analizar features</strong> para que la IA genere ideas.</p>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="features-list">
+                                @foreach (var feature in detail.Features)
+                                {
+                                    <div class="feature-card @(feature.AddedToBacklog ? "is-added" : "") @(expandedFeatureId == feature.Id ? "is-expanded" : "")">
+                                        <div class="feature-card-header">
+                                            <input type="checkbox"
+                                                   checked="@selectedFeatureIds.Contains(feature.Id)"
+                                                   disabled="@feature.AddedToBacklog"
+                                                   @onchange="@(e => ToggleFeatureSelection(feature.Id, e.Value as bool? == true))" />
+                                            <div class="feature-card-title-area" @onclick="@(() => ToggleFeatureExpand(feature.Id))">
+                                                <div class="feature-title">@feature.Title</div>
+                                                <div class="feature-description">@feature.Description</div>
+                                            </div>
+                                            <div class="feature-tags">
+                                                <span class="recommendation-tag rec-cat--@(feature.Complexity == "alta" ? "seguridad" : feature.Complexity == "media" ? "planning" : "documentacion")">@feature.Complexity</span>
+                                                @if (feature.AddedToBacklog)
+                                                {
+                                                    <span class="recommendation-tag recommendation-tag--done">En backlog</span>
+                                                }
+                                            </div>
+                                        </div>
+                                        @if (expandedFeatureId == feature.Id)
+                                        {
+                                            <div class="feature-card-detail">
+                                                <div class="feature-section">
+                                                    <div class="feature-section-title">Plan de implementacion</div>
+                                                    <pre class="feature-implementation">@feature.Implementation</pre>
+                                                </div>
+                                                @if (!string.IsNullOrEmpty(feature.FilesToModify))
+                                                {
+                                                    <div class="feature-section">
+                                                        <div class="feature-section-title">Archivos a modificar</div>
+                                                        <div class="feature-files">
+                                                            @foreach (var file in feature.FilesToModify.Split(",", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                                                            {
+                                                                <span class="feature-file-tag">@file</span>
+                                                            }
+                                                        </div>
+                                                    </div>
+                                                }
+                                                <div class="recommendation-user-notes">
+                                                    @if (editingFeatureNoteId == feature.Id)
+                                                    {
+                                                        <div class="note-edit-area">
+                                                            <textarea class="note-textarea" rows="2"
+                                                                      @bind="editingNoteText" placeholder="Escribi tu nota..."></textarea>
+                                                            <div class="note-edit-actions">
+                                                                <button class="note-btn note-btn--save" @onclick="@(() => SaveFeatureNote(feature))">Guardar</button>
+                                                                <button class="note-btn note-btn--cancel" @onclick="@(() => editingFeatureNoteId = 0)">Cancelar</button>
+                                                            </div>
+                                                        </div>
+                                                    }
+                                                    else if (!string.IsNullOrEmpty(feature.UserNotes))
+                                                    {
+                                                        <div class="note-display" @onclick="@(() => { editingFeatureNoteId = feature.Id; editingNoteText = feature.UserNotes ?? ""; })">
+                                                            <span class="note-label">Tu nota:</span> @feature.UserNotes
+                                                        </div>
+                                                    }
+                                                    else
+                                                    {
+                                                        <button class="note-add-btn" @onclick="@(() => { editingFeatureNoteId = feature.Id; editingNoteText = ""; })">+ Agregar nota</button>
+                                                    }
+                                                </div>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+        else if (activeTab == "trabajo")
+        {
             <div class="detail-section">
                 <div class="card">
                     <div class="card-header"><h3>Trabajo del proyecto</h3></div>
@@ -453,11 +571,15 @@ else
     private ProjectDetailDto? detail;
     private bool loading = true;
     private bool analyzing;
+    private bool analyzingFeatures;
     private bool movingToBacklog;
     private string activeTab = "resumen";
     private string? categoryFilter;
     private int editingNoteId;
+    private int editingFeatureNoteId;
     private string editingNoteText = "";
+    private HashSet<int> selectedFeatureIds = new();
+    private int expandedFeatureId;
 
     private readonly (string Key, string Label, string Color, string HeaderClass)[] statuses =
     [
@@ -501,7 +623,7 @@ else
         {
             var result = await Api.AnalyzeProjectAsync(ProjectId);
             await LoadDetail();
-            activeTab = "trabajo";
+            activeTab = "recomendaciones";
             if (result?.Generated > 0)
             {
                 var msg = $"Analisis profundo listo: {result.Generated} recomendaciones nuevas ({result.FilesAnalyzed} archivos analizados)";
@@ -554,6 +676,74 @@ else
         finally
         {
             movingToBacklog = false;
+        }
+    }
+
+    private async Task AnalyzeFeatures()
+    {
+        analyzingFeatures = true;
+        try
+        {
+            var result = await Api.AnalyzeFeaturesAsync(ProjectId);
+            await LoadDetail();
+            activeTab = "features";
+            Toast.Success(result?.Generated > 0
+                ? $"Listo: {result.Generated} features nuevas propuestas"
+                : "No se generaron features nuevas");
+        }
+        catch
+        {
+            Toast.Error("No se pudieron analizar features. Verifica que el servicio de IA este activo.");
+        }
+        finally
+        {
+            analyzingFeatures = false;
+        }
+    }
+
+    private void ToggleFeatureSelection(int featureId, bool selected)
+    {
+        if (selected) selectedFeatureIds.Add(featureId);
+        else selectedFeatureIds.Remove(featureId);
+    }
+
+    private void ToggleFeatureExpand(int featureId)
+    {
+        expandedFeatureId = expandedFeatureId == featureId ? 0 : featureId;
+    }
+
+    private async Task MoveFeaturesToBacklog()
+    {
+        movingToBacklog = true;
+        try
+        {
+            var ids = selectedFeatureIds.ToList();
+            var moved = await Api.MoveFeaturesToBacklogAsync(ProjectId, ids);
+            await LoadDetail();
+            selectedFeatureIds.Clear();
+            Toast.Success(moved > 0 ? $"{moved} feature(s) pasaron al backlog" : "No habia features para mover");
+        }
+        catch
+        {
+            Toast.Error("No se pudieron mover las features al backlog");
+        }
+        finally
+        {
+            movingToBacklog = false;
+        }
+    }
+
+    private async Task SaveFeatureNote(ProjectFeatureDto feature)
+    {
+        try
+        {
+            await Api.UpdateFeatureNotesAsync(ProjectId, feature.Id, editingNoteText);
+            feature.UserNotes = editingNoteText;
+            editingFeatureNoteId = 0;
+        }
+        catch
+        {
+            Toast.Error("No se pudo guardar la nota");
         }
     }
 

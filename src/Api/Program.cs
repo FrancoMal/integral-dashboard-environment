@@ -199,6 +199,26 @@ END
 ");
 
     await migrateDb.Database.ExecuteSqlRawAsync(@"
+IF OBJECT_ID(N'[ProjectFeatures]', N'U') IS NULL
+BEGIN
+    CREATE TABLE [ProjectFeatures] (
+        [Id] INT IDENTITY(1,1) NOT NULL PRIMARY KEY,
+        [ProjectId] INT NOT NULL,
+        [Title] NVARCHAR(200) NOT NULL,
+        [Description] NVARCHAR(MAX) NOT NULL,
+        [Implementation] NVARCHAR(MAX) NOT NULL DEFAULT '',
+        [FilesToModify] NVARCHAR(MAX) NOT NULL DEFAULT '',
+        [Complexity] NVARCHAR(50) NOT NULL DEFAULT 'media',
+        [UserNotes] NVARCHAR(MAX) NOT NULL DEFAULT '',
+        [AddedToBacklog] BIT NOT NULL DEFAULT 0,
+        [CreatedAt] DATETIME2 NOT NULL
+    );
+    CREATE INDEX [IX_ProjectFeatures_ProjectId] ON [ProjectFeatures]([ProjectId]);
+    CREATE UNIQUE INDEX [IX_ProjectFeatures_ProjectId_Title] ON [ProjectFeatures]([ProjectId], [Title]);
+END
+");
+
+    await migrateDb.Database.ExecuteSqlRawAsync(@"
 IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[ProjectRecommendations]') AND name = 'AnalysisId')
     ALTER TABLE [ProjectRecommendations] ADD [AnalysisId] INT NULL;
 

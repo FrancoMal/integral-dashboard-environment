@@ -382,6 +382,29 @@ button { border: none; background: none; cursor: pointer; font-family: inherit; 
 .activity-status-badge--progress { background: var(--info-bg); color: var(--info); }
 .activity-status-badge--pending { background: var(--warning-bg); color: var(--warning); }
 
+/* --- Features --- */
+.features-list { display: flex; flex-direction: column; gap: 0.75rem; }
+.feature-card { border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--card-bg); transition: all var(--transition); overflow: hidden; }
+.feature-card:hover { border-color: var(--info); box-shadow: var(--shadow-sm); }
+.feature-card.is-added { background: var(--primary-bg); border-color: rgba(16, 185, 129, 0.25); }
+.feature-card.is-expanded { border-color: var(--info); }
+.feature-card-header { display: flex; gap: 0.85rem; padding: 0.95rem 1rem; cursor: pointer; align-items: flex-start; }
+.feature-card-header input { width: 18px; height: 18px; margin-top: 0.15rem; accent-color: var(--primary); cursor: pointer; }
+.feature-card-title-area { flex: 1; min-width: 0; }
+.feature-title { font-size: 0.95rem; font-weight: 600; color: var(--text-primary); }
+.feature-description { margin-top: 0.25rem; font-size: 0.85rem; color: var(--text-secondary); line-height: 1.5; }
+.feature-tags { display: flex; gap: 0.35rem; flex-shrink: 0; }
+.feature-card-detail { padding: 0 1rem 1rem; border-top: 1px solid var(--border); margin-top: 0; padding-top: 0.85rem; }
+.feature-section { margin-bottom: 0.75rem; }
+.feature-section-title { font-size: 0.78rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem; letter-spacing: 0.03em; }
+.feature-implementation { font-size: 0.82rem; color: var(--text-primary); background: var(--bg); padding: 0.75rem; border-radius: var(--radius-sm); line-height: 1.55; white-space: pre-wrap; word-wrap: break-word; font-family: inherit; border: 1px solid var(--border); margin: 0; }
+.feature-files { display: flex; gap: 0.3rem; flex-wrap: wrap; }
+.feature-file-tag { padding: 0.2rem 0.5rem; border-radius: var(--radius-sm); background: var(--info-bg); color: var(--info); font-size: 0.75rem; font-weight: 600; font-family: monospace; }
+.tab-badge--features { background: var(--info); }
+.repo-btn--features { background: var(--info); color: #fff; border: none; padding: 0.45rem 0.85rem; border-radius: var(--radius-sm); font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all var(--transition); }
+.repo-btn--features:hover { background: #2563eb; }
+.repo-btn--features:disabled { opacity: 0.6; cursor: not-allowed; }
+
 /* --- Analysis Summary & History --- */
 .analysis-summary-card { display: flex; flex-direction: column; gap: 0.75rem; }
 .analysis-summary-meta { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; }

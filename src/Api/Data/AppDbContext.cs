@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ProjectRecommendation> ProjectRecommendations => Set<ProjectRecommendation>();
     public DbSet<ProjectWorkItem> ProjectWorkItems => Set<ProjectWorkItem>();
     public DbSet<ProjectAnalysis> ProjectAnalyses => Set<ProjectAnalysis>();
+    public DbSet<ProjectFeature> ProjectFeatures => Set<ProjectFeature>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -41,6 +42,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<ProjectAnalysis>(entity =>
         {
             entity.HasIndex(a => a.ProjectId);
+        });
+
+        modelBuilder.Entity<ProjectFeature>(entity =>
+        {
+            entity.HasIndex(f => f.ProjectId);
+            entity.HasIndex(f => new { f.ProjectId, f.Title }).IsUnique();
         });
     }
 }

@@ -25,6 +25,33 @@ ${files.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n\n")}
 JSON:`;
 }
 
+function buildFeaturesPrompt(repoName, language, files, readme, description) {
+  const fileList = files.map((f) => `--- ${f.path} ---\n${f.content}`).join("\n\n");
+
+  return `Sos un product manager e ingeniero senior. Analiza el repositorio "${repoName}" y propone features nuevas que tengan sentido para este proyecto.
+
+Descripcion del proyecto: ${description || "No disponible"}
+Lenguaje principal: ${language || "desconocido"}
+${readme ? `README:\n${readme.slice(0, 3000)}` : "Sin README"}
+
+ARCHIVOS DEL PROYECTO:
+${fileList}
+
+INSTRUCCIONES:
+- Propone entre 3 y 7 features nuevas que se acoplen naturalmente al proyecto actual
+- Cada feature debe ser concreta, implementable y util para el usuario
+- La implementacion debe ser lo suficientemente detallada para que un agente de IA (Claude Code) pueda ejecutarla directamente
+- Incluir que archivos crear o modificar
+- Pensar en el stack actual del proyecto y proponer features coherentes con el
+- No proponer cosas que ya estan implementadas
+- Complejidad: "baja" (1-2 archivos, < 1 hora), "media" (3-5 archivos, 1-3 horas), "alta" (6+ archivos, > 3 horas)
+
+RESPONDE UNICAMENTE con un JSON array valido, sin markdown, sin explicacion extra. Cada elemento:
+{"title": "nombre corto de la feature", "description": "que hace y por que es util para el usuario", "implementation": "pasos detallados de implementacion, mencionando archivos especificos a crear/modificar, funciones a agregar, endpoints, componentes de UI, etc. Escrito como si fuera un prompt para Claude Code.", "filesToModify": "lista de archivos separados por coma", "complexity": "baja|media|alta"}
+
+JSON:`;
+}
+
 function runClaude(prompt) {
   return new Promise((resolve, reject) => {
     const child = spawn("claude", ["-p", "--output-format", "text"], {
@@ -129,6 +156,48 @@ const server = createServer(async (req, res) => {
       console.error(`[analyze] error: ${err.message}`);
       res.writeHead(500, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ error: err.message, recommendations: [] }));
+    }
+    return;
+  }
+
+  // Features endpoint
+  if (req.method === "POST" && req.url === "/features") {
+    try {
+      const { repoName, language, files, readme, description } =
+        await readBody(req);
+
+      let totalChars = 0;
+      const trimmedFiles = [];
+      for (const f of files || []) {
+        if (totalChars >= MAX_TOTAL_CHARS) break;
+        const content = (f.content || "").slice(0, MAX_FILE_CHARS);
+        totalChars += content.length;
+        trimmedFiles.push({ path: f.path, content });
+      }
+
+      const prompt = buildFeaturesPrompt(
+        repoName,
+        language,
+        trimmedFiles,
+        readme,
+        description
+      );
+
+      console.log(
+        `[features] repo=${repoName} files=${trimmedFiles.length} prompt_len=${prompt.length}`
+      );
+
+      const raw = await runClaude(prompt);
+      const features = parseJSON(raw);
+
+      console.log(`[features] repo=${repoName} features=${features.length}`);
+
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ features, raw: raw.slice(0, 500) }));
+    } catch (err) {
+      console.error(`[features] error: ${err.message}`);
+      res.writeHead(500, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ error: err.message, features: [] }));
     }
     return;
   }

@@ -34,6 +34,25 @@ public class AnalyzeProjectResultDto
     public int FilesAnalyzed { get; set; }
 }
 
+public class ProjectFeatureDto
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Implementation { get; set; } = string.Empty;
+    public string FilesToModify { get; set; } = string.Empty;
+    public string Complexity { get; set; } = "media";
+    public string UserNotes { get; set; } = string.Empty;
+    public bool AddedToBacklog { get; set; }
+    public DateTime CreatedAt { get; set; }
+}
+
+public class AnalyzeFeaturesResultDto
+{
+    public int Generated { get; set; }
+    public int TotalFeatures { get; set; }
+}
+
 public class ProjectAnalysisEntryDto
 {
     public int Id { get; set; }

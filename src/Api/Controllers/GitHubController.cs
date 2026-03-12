@@ -137,6 +137,10 @@ public class GitHubController : ControllerBase
             .Where(a => a.ProjectId == project.Id)
             .OrderByDescending(a => a.AnalyzedAt)
             .ToListAsync();
+        var features = await _db.ProjectFeatures
+            .Where(f => f.ProjectId == project.Id)
+            .OrderByDescending(f => f.CreatedAt)
+            .ToListAsync();
 
         return Ok(new
         {
@@ -194,6 +198,18 @@ public class GitHubController : ControllerBase
                 w.CreatedAt
             }),
             readme,
+            features = features.Select(f => new
+            {
+                f.Id,
+                f.Title,
+                f.Description,
+                f.Implementation,
+                f.FilesToModify,
+                f.Complexity,
+                f.UserNotes,
+                f.AddedToBacklog,
+                f.CreatedAt
+            }),
             analyses = analyses.Select(a => new
             {
                 a.Id,
@@ -558,6 +574,59 @@ public class GitHubController : ControllerBase
         });
     }
 
+    [HttpPost("projects/{id}/features")]
+    public async Task<IActionResult> AnalyzeFeatures(int id)
+    {
+        var project = await _db.Projects.FindAsync(id);
+        if (project == null || !project.IsActive)
+            return NotFound();
+
+        if (!await _claude.IsAvailableAsync())
+            return StatusCode(503, new { message = "El servicio de analisis IA no esta disponible." });
+
+        var repoDetail = await _github.GetRepoDetailAsync(project.FullName);
+        var defaultBranch = repoDetail?.DefaultBranch ?? "main";
+        var tree = await _github.GetRepoTreeAsync(project.FullName, defaultBranch);
+        var readme = await _github.GetRepoReadmeAsync(project.FullName);
+
+        var filePaths = tree.Where(t => t.Type == "blob").Select(t => t.Path).ToList();
+        var keyFiles = SelectKeyFiles(filePaths, project.Language);
+        var codeFiles = new List<CodeFile>();
+
+        foreach (var filePath in keyFiles.Take(10))
+        {
+            var content = await _github.GetFileContentAsync(project.FullName, filePath);
+            if (!string.IsNullOrEmpty(content))
+                codeFiles.Add(new CodeFile { Path = filePath, Content = content });
+        }
+
+        var proposals = await _claude.AnalyzeFeaturesAsync(
+            project.FullName, project.Language, codeFiles, readme, project.Description);
+
+        int generated = 0;
+        foreach (var p in proposals)
+        {
+            var exists = await _db.ProjectFeatures.AnyAsync(f => f.ProjectId == project.Id && f.Title == p.Title);
+            if (exists) continue;
+
+            _db.ProjectFeatures.Add(new ProjectFeature
+            {
+                ProjectId = project.Id,
+                Title = p.Title,
+                Description = p.Description,
+                Implementation = p.Implementation,
+                FilesToModify = p.FilesToModify,
+                Complexity = p.Complexity
+            });
+            generated++;
+        }
+
+        await _db.SaveChangesAsync();
+        var total = await _db.ProjectFeatures.CountAsync(f => f.ProjectId == project.Id);
+
+        return Ok(new { generated, totalFeatures = total });
+    }
+
     [HttpGet("projects/{id}/analyses")]
     public async Task<IActionResult> GetProjectAnalyses(int id)
     {
@@ -577,6 +646,40 @@ public class GitHubController : ControllerBase
             a.DetectedTools,
             a.FilesAnalyzed
         }));
+    }
+
+    [HttpPost("projects/{id}/features/{featureId}/notes")]
+    public async Task<IActionResult> UpdateFeatureNotes(int id, int featureId, [FromBody] UpdateNotesRequest request)
+    {
+        var feature = await _db.ProjectFeatures.FirstOrDefaultAsync(f => f.ProjectId == id && f.Id == featureId);
+        if (feature == null) return NotFound();
+        feature.UserNotes = request.UserNotes ?? string.Empty;
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpPost("projects/{id}/features/backlog")]
+    public async Task<IActionResult> MoveFeaturesToBacklog(int id, [FromBody] FeatureBacklogRequest request)
+    {
+        var features = await _db.ProjectFeatures
+            .Where(f => f.ProjectId == id && request.FeatureIds.Contains(f.Id) && !f.AddedToBacklog)
+            .ToListAsync();
+
+        foreach (var feature in features)
+        {
+            _db.ProjectWorkItems.Add(new ProjectWorkItem
+            {
+                ProjectId = id,
+                Title = feature.Title,
+                Notes = $"{feature.Description}\n\nImplementacion:\n{feature.Implementation}",
+                Status = "backlog",
+                Source = "feature"
+            });
+            feature.AddedToBacklog = true;
+        }
+
+        await _db.SaveChangesAsync();
+        return Ok(new { moved = features.Count });
     }
 
     [HttpPost("projects/{id}/recommendations/{recId}/notes")]
@@ -740,4 +843,9 @@ public class RecommendationSelectionRequest
 public class UpdateNotesRequest
 {
     public string? UserNotes { get; set; }
+}
+
+public class FeatureBacklogRequest
+{
+    public List<int> FeatureIds { get; set; } = new();
 }

@@ -7,6 +7,7 @@ public class ProjectDetailDto
     public List<ProjectDetailCommit> Commits { get; set; } = new();
     public List<ProjectRecommendationDto> Recommendations { get; set; } = new();
     public List<ProjectWorkItemDto> WorkItems { get; set; } = new();
+    public List<ProjectFeatureDto> Features { get; set; } = new();
     public List<ProjectAnalysisEntryDto> Analyses { get; set; } = new();
     public string? Readme { get; set; }
 }

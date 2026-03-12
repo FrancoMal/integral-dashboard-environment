@@ -58,6 +58,36 @@ public class ClaudeAnalyzerService
             return new();
         }
     }
+    public async Task<List<FeatureProposal>> AnalyzeFeaturesAsync(
+        string repoName, string? language, List<CodeFile> files, string? readme, string? description)
+    {
+        try
+        {
+            var payload = new
+            {
+                repoName,
+                language = language ?? "unknown",
+                files = files.Select(f => new { f.Path, f.Content }).ToList(),
+                readme = readme ?? "",
+                description = description ?? ""
+            };
+
+            var response = await _http.PostAsJsonAsync($"{_baseUrl}/features", payload);
+
+            if (!response.IsSuccessStatusCode)
+                return new();
+
+            var result = await response.Content.ReadFromJsonAsync<FeaturesResponse>(
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+
+            return result?.Features ?? new();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"[ClaudeAnalyzer] Features error: {ex.Message}");
+            return new();
+        }
+    }
 }
 
 public class CodeFile
@@ -77,5 +107,20 @@ public class ClaudeRecommendation
 public class AnalyzeResponse
 {
     public List<ClaudeRecommendation> Recommendations { get; set; } = new();
+    public string? Raw { get; set; }
+}
+
+public class FeatureProposal
+{
+    public string Title { get; set; } = string.Empty;
+    public string Description { get; set; } = string.Empty;
+    public string Implementation { get; set; } = string.Empty;
+    public string FilesToModify { get; set; } = string.Empty;
+    public string Complexity { get; set; } = "media";
+}
+
+public class FeaturesResponse
+{
+    public List<FeatureProposal> Features { get; set; } = new();
     public string? Raw { get; set; }
 }

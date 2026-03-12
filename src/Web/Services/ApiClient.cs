@@ -70,6 +70,22 @@ public class ApiClient
         return await PostAsync<AnalyzeProjectResultDto>($"/api/github/projects/{projectId}/analyze", new { });
     }
 
+    public async Task<AnalyzeFeaturesResultDto?> AnalyzeFeaturesAsync(int projectId)
+    {
+        return await PostAsync<AnalyzeFeaturesResultDto>($"/api/github/projects/{projectId}/features", new { });
+    }
+
+    public async Task UpdateFeatureNotesAsync(int projectId, int featureId, string userNotes)
+    {
+        await PostAsync<object>($"/api/github/projects/{projectId}/features/{featureId}/notes", new { userNotes });
+    }
+
+    public async Task<int> MoveFeaturesToBacklogAsync(int projectId, List<int> featureIds)
+    {
+        var result = await PostAsync<BacklogMoveResultDto>($"/api/github/projects/{projectId}/features/backlog", new { featureIds });
+        return result?.Moved ?? 0;
+    }
+
     public async Task UpdateRecommendationNotesAsync(int projectId, int recommendationId, string userNotes)
     {
         await PostAsync<object>($"/api/github/projects/{projectId}/recommendations/{recommendationId}/notes", new { userNotes });
