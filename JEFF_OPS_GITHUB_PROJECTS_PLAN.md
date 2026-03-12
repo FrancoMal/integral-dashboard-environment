@@ -274,18 +274,21 @@ Se puede ver la evolución del proyecto análisis a análisis, no solo una foto 
 Mostrar qué estuvo haciendo JeffVps con cada proyecto.
 
 ### Estado
-🟡 **Pendiente**
+✅ **Hecha**
 
-### Qué debería incluir
-- actividades en curso
-- actividades terminadas
-- análisis disparados
-- imports/reimports
-- trabajos ejecutados por herramientas/agentes
-- posible tab de **Actividades** en Jeff Ops
+### Qué quedó implementado
+- Tabla `ActivityLogs` que registra cada evento en tiempo real
+- Se logean: imports de repos, análisis estructurales, análisis con IA, generación de features, movimientos al backlog
+- Cada log incluye: proyecto vinculado, acción, fuente, detalle, timestamp
+- Página de Actividades reescrita con:
+  - Filtros por fuente (GitHub, Análisis, Features, Backlog)
+  - Links directos al proyecto desde cada actividad
+  - Badges de fuente con colores diferenciados
+  - Stat cards con totales por fuente
+- Preparado para registrar actividad del orquestador (source: "orquestador")
 
-### Resultado esperado
-Visibilidad operativa de lo que pasa detrás del sistema.
+### Resultado visible
+Visibilidad operativa completa de todo lo que pasa en el sistema.
 
 ---
 
@@ -323,7 +326,7 @@ El entorno ACP quedó más encaminado, pero **Claude CLI tenía auth vencida** y
 ## Fases pendientes
 - ✅ Fase 9 — Análisis profundo del repo/código
 - ✅ Fase 10 — Historial de análisis
-- 🟡 Fase 11 — Actividades / trazabilidad de JeffVps
+- ✅ Fase 11 — Actividades / trazabilidad de JeffVps
 - 🔴 Fase 12 — Integración más fuerte con Claude Code / ACP / herramientas
 
 ---
