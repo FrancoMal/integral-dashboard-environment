@@ -10,11 +10,13 @@ import { DashboardClient } from "./dashboard-client.js";
 console.log("╔══════════════════════════════════════════╗");
 console.log("║       Jeff Orchestrator v1.0             ║");
 console.log("╚══════════════════════════════════════════╝");
-console.log(`Provider:  ${config.provider}`);
-console.log(`Dashboard: ${config.dashboardUrl}`);
-console.log(`Work dir:  ${config.workDir}`);
-console.log(`Poll:      every ${config.pollInterval}s`);
-console.log(`Available: ${listProviders().join(", ")}`);
+console.log(`Provider:    ${config.provider}`);
+console.log(`Dashboard:   ${config.dashboardUrl}`);
+console.log(`Work dir:    ${config.workDir}`);
+console.log(`Poll:        every ${config.pollInterval}s`);
+console.log(`Git push:    ${config.githubToken ? "enabled" : "disabled (no GITHUB_TOKEN)"}`);
+console.log(`Git author:  ${config.gitName} <${config.gitEmail}>`);
+console.log(`Providers:   ${listProviders().join(", ")}`);
 console.log("");
 
 if (!existsSync(config.workDir)) {
@@ -28,12 +30,12 @@ const dashboard = new DashboardClient(
   config.dashboardPass
 );
 
-let running = false;
-let heartbeatTimer = null;
+let isWorking = false;
+const failCounts = new Map(); // workItemId → number of failures
 
 // ── Heartbeat ──────────────────────────────────────────
 
-async function sendHeartbeat(data) {
+async function heartbeat(data) {
   try {
     await dashboard.heartbeat({ provider: config.provider, ...data });
   } catch (err) {
@@ -41,33 +43,29 @@ async function sendHeartbeat(data) {
   }
 }
 
-function startHeartbeat() {
-  if (heartbeatTimer) clearInterval(heartbeatTimer);
-  // Only send idle heartbeat if not currently running a task
-  heartbeatTimer = setInterval(() => {
-    if (!running) sendHeartbeat({ status: "idle" });
-  }, 30_000);
-}
+// Send idle heartbeat every 20s when not working
+setInterval(() => {
+  if (!isWorking) heartbeat({ status: "idle" });
+}, 20_000);
 
 // ── Main Loop ──────────────────────────────────────────
 
 async function tick() {
-  if (running) return;
-  running = true;
+  if (isWorking) return;
 
   try {
-    await sendHeartbeat({ status: "scanning" });
+    await heartbeat({ status: "scanning", currentTask: "Buscando tareas..." });
 
     const available = await provider.isAvailable();
     if (!available) {
       console.log(`[warn] Provider "${config.provider}" not available`);
-      await sendHeartbeat({ status: "error", currentTask: "Provider not available" });
+      await heartbeat({ status: "error", currentTask: "Provider no disponible" });
       return;
     }
 
     const projects = await dashboard.getProjects();
-    if (!projects || projects.length === 0) {
-      await sendHeartbeat({ status: "idle", currentTask: "" });
+    if (!projects?.length) {
+      await heartbeat({ status: "idle", currentTask: "" });
       return;
     }
 
@@ -79,37 +77,38 @@ async function tick() {
       const backlogItems = (detail.workItems || []).filter(
         (w) => w.status === "backlog"
       );
-
       if (backlogItems.length === 0) continue;
 
-      console.log(
-        `[${project.name}] ${backlogItems.length} item(s) in backlog`
-      );
+      console.log(`[${project.name}] ${backlogItems.length} item(s) in backlog`);
 
-      const item = backlogItems[0];
-      console.log(`[${project.name}] Processing: "${item.title}"`);
+      // Skip items that have failed recently (tracked by failCounts)
+      const item = backlogItems.find(i => (failCounts.get(i.id) || 0) < 2) || null;
+      if (!item) {
+        console.log(`[${project.name}] All backlog items have failed, skipping`);
+        continue;
+      }
+      console.log(`[${project.name}] → "${item.title}"`);
 
       await processWorkItem(project, detail, item);
-      break;
+      return; // One task per tick
     }
 
-    await sendHeartbeat({ status: "idle", currentTask: "", currentProjectName: "" });
+    await heartbeat({ status: "idle", currentTask: "Sin tareas pendientes" });
   } catch (err) {
-    console.error(`[error] Tick failed: ${err.message}`);
-    await sendHeartbeat({ status: "error", currentTask: err.message });
-  } finally {
-    running = false;
+    console.error(`[error] Tick: ${err.message}`);
+    await heartbeat({ status: "error", currentTask: err.message });
   }
 }
 
-// ── Process a single work item ─────────────────────────
+// ── Process Work Item ──────────────────────────────────
 
 async function processWorkItem(project, detail, item) {
   const repoDir = join(config.workDir, project.name);
+  isWorking = true;
 
   try {
-    // Report start
-    await sendHeartbeat({
+    // ── Report start ──
+    await heartbeat({
       status: "working",
       currentProjectId: project.id,
       currentProjectName: project.name,
@@ -120,21 +119,30 @@ async function processWorkItem(project, detail, item) {
     await dashboard.logActivity({
       projectId: project.id,
       projectName: project.name,
-      action: "execute",
-      title: `Ejecutando: ${item.title}`,
+      action: "execute_start",
+      title: `Iniciando: ${item.title}`,
       detail: `Provider: ${config.provider}`,
       source: "orquestador",
       status: "in_progress",
     });
 
-    // Update work item to in_progress
     await dashboard.updateWorkItemStatus(project.id, item.id, "in_progress");
 
-    // Clone or pull
-    await ensureRepo(project, repoDir);
-    await sendHeartbeat({ outputAppend: `> Repo listo: ${project.name}\n> Ejecutando tarea...\n\n` });
+    // ── Clone / pull repo ──
+    console.log(`[${project.name}] Preparing repo at ${repoDir}`);
+    await heartbeat({ outputAppend: `⏳ Preparando repo ${project.name}...\n` });
+    try {
+      await ensureRepo(project, repoDir);
+    } catch (repoErr) {
+      console.error(`[${project.name}] Repo error: ${repoErr.message}`);
+      await heartbeat({ outputAppend: `❌ Error de repo: ${repoErr.message}\n` });
+      throw repoErr;
+    }
+    console.log(`[${project.name}] Repo ready, running agent...`);
+    await heartbeat({ outputAppend: `✓ Repo listo\n\n🤖 Ejecutando tarea con ${config.provider}...\n\n` });
 
-    // Run the agent with output streaming
+    // ── Run agent with streaming ──
+    console.log(`[${project.name}] Calling provider.execute()...`);
     const result = await provider.execute({
       prompt: `${item.title}\n\n${item.notes || ""}`,
       cwd: repoDir,
@@ -144,78 +152,113 @@ async function processWorkItem(project, detail, item) {
         repoUrl: detail.project?.htmlUrl,
       },
       onOutput: (chunk) => {
-        // Stream chunks to dashboard (debounced)
-        sendHeartbeat({ outputAppend: chunk });
+        // Stream to dashboard in real time
+        heartbeat({ outputAppend: chunk });
       },
     });
 
+    console.log(`[${project.name}] Provider result: success=${result.success}, output=${result.output?.length || 0} chars, error=${result.error?.slice(0,200) || 'none'}`);
+
     if (result.success) {
+      // ── Commit & Push ──
       const hasChanges = await gitHasChanges(repoDir);
       if (hasChanges) {
-        await gitCommit(
-          repoDir,
-          `${item.title}\n\nEjecutado por Jeff Orchestrator via ${config.provider}`
-        );
-        await sendHeartbeat({ outputAppend: "\n> Cambios commiteados\n" });
-        console.log(`[${project.name}] Committed changes`);
+        await heartbeat({ outputAppend: "\n\n📦 Commiteando cambios...\n" });
+        await gitCommit(repoDir, item.title);
+
+        if (config.githubToken && project.htmlUrl) {
+          await heartbeat({ outputAppend: "🚀 Pusheando a GitHub...\n" });
+          await gitPush(repoDir, project);
+          await heartbeat({ outputAppend: "✓ Push exitoso\n" });
+          console.log(`[${project.name}] Pushed to GitHub`);
+        }
+
+        const files = result.filesChanged.length > 0
+          ? result.filesChanged.join(", ")
+          : await getChangedFiles(repoDir);
+        await heartbeat({ outputAppend: `\n✓ Archivos: ${files}\n` });
+        console.log(`[${project.name}] Committed: ${files}`);
+      } else {
+        await heartbeat({ outputAppend: "\nℹ️ Sin cambios en archivos\n" });
       }
 
+      // ── Mark done ──
       await dashboard.updateWorkItemStatus(project.id, item.id, "done");
 
       await dashboard.logActivity({
         projectId: project.id,
         projectName: project.name,
-        action: "complete",
+        action: "execute_done",
         title: `Completado: ${item.title}`,
-        detail: result.output?.slice(0, 500) || "Tarea ejecutada",
+        detail: (result.output || "").slice(0, 500),
         source: "orquestador",
         status: "done",
       });
 
-      await sendHeartbeat({
-        status: "idle",
-        outputAppend: "\n\n✓ Tarea completada\n",
-      });
-
-      console.log(`[${project.name}] Done: "${item.title}"`);
+      await heartbeat({ outputAppend: "\n\n✅ Tarea completada\n" });
+      console.log(`[${project.name}] ✓ Done: "${item.title}"`);
     } else {
+      // ── Failed ──
       await dashboard.logActivity({
         projectId: project.id,
         projectName: project.name,
-        action: "error",
+        action: "execute_error",
         title: `Error en: ${item.title}`,
-        detail: result.error?.slice(0, 500) || "Error desconocido",
+        detail: (result.error || "").slice(0, 500),
         source: "orquestador",
         status: "done",
       });
 
-      await sendHeartbeat({
-        status: "idle",
-        outputAppend: `\n\n✗ Error: ${result.error?.slice(0, 200)}\n`,
-      });
+      // Track failure count
+      const fails = (failCounts.get(item.id) || 0) + 1;
+      failCounts.set(item.id, fails);
 
-      console.error(
-        `[${project.name}] Failed: "${item.title}" — ${result.error}`
-      );
+      if (fails >= 2) {
+        // Too many failures, mark as done with error note
+        await dashboard.updateWorkItemStatus(project.id, item.id, "done");
+        await heartbeat({ outputAppend: `\n⚠️ Marcado como completado tras ${fails} intentos fallidos\n` });
+      }
+
+      await heartbeat({ outputAppend: `\n\n❌ Error: ${(result.error || "").slice(0, 200)}\n` });
+      console.error(`[${project.name}] ✗ Failed: "${item.title}" — ${result.error?.slice(0, 300)}`);
     }
   } catch (err) {
-    console.error(
-      `[${project.name}] Error processing "${item.title}": ${err.message}`
-    );
+    console.error(`[${project.name}] Error: ${err.message}\n${err.stack}`);
+    await heartbeat({ outputAppend: `\n\n❌ Error interno: ${err.message}\n` });
+  } finally {
+    isWorking = false;
+    await heartbeat({ status: "idle", currentTask: "" });
   }
 }
 
 // ── Git helpers ────────────────────────────────────────
 
 async function ensureRepo(project, repoDir) {
+  const cloneUrl = getAuthenticatedUrl(project);
+
   if (existsSync(join(repoDir, ".git"))) {
-    await git(repoDir, ["pull", "--rebase"]);
+    // Set remote URL with token for push
+    await git(repoDir, ["remote", "set-url", "origin", cloneUrl]);
+    await git(repoDir, ["pull", "--rebase", "--autostash"]);
   } else {
-    const url = project.htmlUrl?.endsWith(".git")
-      ? project.htmlUrl
-      : `${project.htmlUrl}.git`;
-    await git(config.workDir, ["clone", url, project.name]);
+    await git(config.workDir, ["clone", cloneUrl, project.name]);
   }
+
+  // Set user config
+  await git(repoDir, ["config", "user.name", config.gitName]);
+  await git(repoDir, ["config", "user.email", config.gitEmail]);
+}
+
+function getAuthenticatedUrl(project) {
+  const baseUrl = project.htmlUrl || "";
+  if (config.githubToken && baseUrl.includes("github.com")) {
+    // https://TOKEN@github.com/owner/repo.git
+    return baseUrl.replace(
+      "https://github.com",
+      `https://${config.githubToken}@github.com`
+    ) + ".git";
+  }
+  return baseUrl.endsWith(".git") ? baseUrl : baseUrl + ".git";
 }
 
 async function gitHasChanges(cwd) {
@@ -223,13 +266,23 @@ async function gitHasChanges(cwd) {
   return result.trim().length > 0;
 }
 
-async function gitCommit(cwd, message) {
+async function gitCommit(cwd, title) {
   await git(cwd, ["add", "-A"]);
-  await git(cwd, [
-    "-c", `user.name=${config.gitName}`,
-    "-c", `user.email=${config.gitEmail}`,
-    "commit", "-m", message,
-  ]);
+  await git(cwd, ["commit", "-m", `${title}\n\nEjecutado por Jeff Orchestrator via ${config.provider}`]);
+}
+
+async function gitPush(cwd, project) {
+  const branch = await git(cwd, ["branch", "--show-current"]);
+  await git(cwd, ["push", "origin", branch.trim()]);
+}
+
+async function getChangedFiles(cwd) {
+  try {
+    const result = await git(cwd, ["diff", "--name-only", "HEAD~1"]);
+    return result.trim() || "(sin info)";
+  } catch {
+    return "(sin info)";
+  }
 }
 
 function git(cwd, args) {
@@ -244,7 +297,7 @@ function git(cwd, args) {
     child.stderr.on("data", (d) => (stderr += d.toString()));
     child.on("close", (code) => {
       if (code !== 0 && !stderr.includes("nothing to commit")) {
-        reject(new Error(`git ${args[0]} failed: ${stderr}`));
+        reject(new Error(`git ${args[0]}: ${stderr.trim()}`));
       } else {
         resolve(stdout);
       }
@@ -258,41 +311,39 @@ function git(cwd, args) {
 async function main() {
   try {
     await dashboard.login();
-    console.log("[auth] Logged in to dashboard");
+    console.log("[auth] ✓ Dashboard login OK");
   } catch (err) {
-    console.error(`[auth] Login failed: ${err.message}`);
+    console.error(`[auth] ✗ Login failed: ${err.message}`);
     process.exit(1);
   }
 
   const providerOk = await provider.isAvailable();
-  console.log(
-    `[provider] ${config.provider}: ${providerOk ? "available" : "NOT available"}`
-  );
+  console.log(`[provider] ${config.provider}: ${providerOk ? "✓ available" : "✗ NOT available"}`);
 
   if (!providerOk) {
-    console.error(`Provider "${config.provider}" not available. Exiting.`);
+    console.error(`Provider "${config.provider}" not available.`);
     process.exit(1);
   }
 
-  // Start heartbeat
-  await sendHeartbeat({ status: "idle", clearOutput: true });
-  startHeartbeat();
+  await heartbeat({ status: "idle", clearOutput: true });
 
-  console.log("\n[loop] Starting orchestrator loop...\n");
+  console.log(`\n[loop] Polling every ${config.pollInterval}s — Ctrl+C to stop\n`);
 
+  // First tick immediately
   await tick();
+
+  // Then poll
   setInterval(tick, config.pollInterval * 1000);
 }
 
-// Graceful shutdown
 process.on("SIGINT", async () => {
   console.log("\n[shutdown] Stopping...");
-  await sendHeartbeat({ status: "offline", currentTask: "" });
+  await heartbeat({ status: "offline" });
   process.exit(0);
 });
 
 process.on("SIGTERM", async () => {
-  await sendHeartbeat({ status: "offline", currentTask: "" });
+  await heartbeat({ status: "offline" });
   process.exit(0);
 });
 
