@@ -269,6 +269,15 @@ IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[ProjectR
     ALTER TABLE [ProjectRecommendations] ADD [UserNotes] NVARCHAR(MAX) NOT NULL DEFAULT '';
 ");
 
+    // Add error tracking columns to ProjectWorkItems
+    await migrateDb.Database.ExecuteSqlRawAsync(@"
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[ProjectWorkItems]') AND name = 'ErrorMessage')
+    ALTER TABLE [ProjectWorkItems] ADD [ErrorMessage] NVARCHAR(MAX) NOT NULL DEFAULT '';
+
+IF NOT EXISTS (SELECT 1 FROM sys.columns WHERE object_id = OBJECT_ID(N'[ProjectWorkItems]') AND name = 'ErrorAt')
+    ALTER TABLE [ProjectWorkItems] ADD [ErrorAt] DATETIME2 NULL;
+");
+
     // Fix legacy NOT NULL constraints on Projects (drop default constraints first)
     await migrateDb.Database.ExecuteSqlRawAsync(@"
 DECLARE @cn NVARCHAR(256)

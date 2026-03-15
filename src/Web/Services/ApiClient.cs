@@ -104,9 +104,21 @@ public class ApiClient
         await PostAsync<object>($"/api/github/projects/{projectId}/recommendations/selection", new { recommendationId, selected });
     }
 
-    public async Task UpdateWorkItemStatusAsync(int projectId, int itemId, string status)
+    public async Task UpdateWorkItemStatusAsync(int projectId, int itemId, string status, string? errorMessage = null)
     {
-        await PostAsync<object>($"/api/github/projects/{projectId}/workitems/{itemId}/status", new { status });
+        await PostAsync<object>($"/api/github/projects/{projectId}/workitems/{itemId}/status", new { status, errorMessage });
+    }
+
+    public async Task DeleteWorkItemAsync(int projectId, int itemId)
+    {
+        await SetAuthHeaderAsync();
+        var response = await _http.DeleteAsync($"/api/github/projects/{projectId}/workitems/{itemId}");
+        if (response.StatusCode == HttpStatusCode.Unauthorized)
+        {
+            _navigation.NavigateTo("/login", true);
+            return;
+        }
+        response.EnsureSuccessStatusCode();
     }
 
     public async Task CreateCustomFeatureAsync(int projectId, string title, string description, string implementation)

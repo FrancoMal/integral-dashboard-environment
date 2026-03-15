@@ -9,5 +9,7 @@ public class ProjectWorkItem
     public string Notes { get; set; } = string.Empty;
     public string Status { get; set; } = "backlog";
     public string Source { get; set; } = "manual";
+    public string ErrorMessage { get; set; } = string.Empty;
+    public DateTime? ErrorAt { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }

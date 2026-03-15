@@ -562,15 +562,37 @@ else
                                             <div class="work-items-list">
                                                 @foreach (var item in items)
                                                 {
-                                                    <div class="work-item-card">
+                                                    <div class="work-item-card @(status.Key == "error" ? "work-item-card--error" : "")">
                                                         <div class="work-item-title">@item.Title</div>
                                                         <div class="work-item-notes">@item.Notes</div>
+                                                        @if (status.Key == "error" && !string.IsNullOrEmpty(item.ErrorMessage))
+                                                        {
+                                                            <div class="work-item-error-msg">
+                                                                <span class="work-item-error-icon">@SvgIcons.AlertCircle</span>
+                                                                <span>@item.ErrorMessage</span>
+                                                            </div>
+                                                        }
                                                         <div class="work-item-meta">
                                                             <span>@item.Source · @FormatDate(item.CreatedAt)</span>
-                                                            @if (status.Key == "in_progress")
-                                                            {
-                                                                <button class="work-item-remove-btn" @onclick="@(() => MoveWorkItemToBacklog(item))" title="Mover a backlog">Quitar</button>
-                                                            }
+                                                            <div class="work-item-actions">
+                                                                @if (status.Key == "in_progress")
+                                                                {
+                                                                    <button class="work-item-action-btn work-item-action--pause" @onclick="@(() => MoveWorkItemToBacklog(item))" title="Pausar y mover al backlog">Pausar</button>
+                                                                }
+                                                                else if (status.Key == "error")
+                                                                {
+                                                                    <button class="work-item-action-btn work-item-action--retry" @onclick="@(() => RetryWorkItem(item))" title="Reintentar (vuelve al backlog)">Reintentar</button>
+                                                                    <button class="work-item-action-btn work-item-action--complete" @onclick="@(() => CompleteWorkItem(item))" title="Marcar como completado manualmente">Completar</button>
+                                                                }
+                                                                else if (status.Key == "backlog")
+                                                                {
+                                                                    <button class="work-item-action-btn work-item-action--delete" @onclick="@(() => DeleteWorkItem(item))" title="Eliminar del backlog">Eliminar</button>
+                                                                }
+                                                                else if (status.Key == "done")
+                                                                {
+                                                                    <button class="work-item-action-btn work-item-action--reopen" @onclick="@(() => ReopenWorkItem(item))" title="Reabrir y mover al backlog">Reabrir</button>
+                                                                }
+                                                            </div>
                                                         </div>
                                                     </div>
                                                 }
@@ -744,6 +766,7 @@ else
     [
         ("backlog", "Backlog", "var(--text-muted)", "work-column--backlog"),
         ("in_progress", "En progreso", "var(--info)", "work-column--progress"),
+        ("error", "Con error", "#e74c3c", "work-column--error"),
         ("done", "Completado", "var(--primary)", "work-column--done")
     ];
 
@@ -951,11 +974,71 @@ else
         {
             await Api.UpdateWorkItemStatusAsync(ProjectId, item.Id, "backlog");
             item.Status = "backlog";
-            Toast.Success("Item movido al backlog");
+            item.ErrorMessage = "";
+            item.ErrorAt = null;
+            Toast.Success("Item pausado y movido al backlog");
         }
         catch
         {
             Toast.Error("No se pudo mover el item al backlog");
+        }
+    }
+
+    private async Task RetryWorkItem(ProjectWorkItemDto item)
+    {
+        try
+        {
+            await Api.UpdateWorkItemStatusAsync(ProjectId, item.Id, "backlog");
+            item.Status = "backlog";
+            item.ErrorMessage = "";
+            item.ErrorAt = null;
+            Toast.Success("Item listo para reintentar en el backlog");
+        }
+        catch
+        {
+            Toast.Error("No se pudo reintentar el item");
+        }
+    }
+
+    private async Task CompleteWorkItem(ProjectWorkItemDto item)
+    {
+        try
+        {
+            await Api.UpdateWorkItemStatusAsync(ProjectId, item.Id, "done");
+            item.Status = "done";
+            Toast.Success("Item marcado como completado");
+        }
+        catch
+        {
+            Toast.Error("No se pudo completar el item");
+        }
+    }
+
+    private async Task ReopenWorkItem(ProjectWorkItemDto item)
+    {
+        try
+        {
+            await Api.UpdateWorkItemStatusAsync(ProjectId, item.Id, "backlog");
+            item.Status = "backlog";
+            Toast.Success("Item reabierto en el backlog");
+        }
+        catch
+        {
+            Toast.Error("No se pudo reabrir el item");
+        }
+    }
+
+    private async Task DeleteWorkItem(ProjectWorkItemDto item)
+    {
+        try
+        {
+            await Api.DeleteWorkItemAsync(ProjectId, item.Id);
+            detail?.WorkItems.Remove(item);
+            Toast.Success("Item eliminado");
+        }
+        catch
+        {
+            Toast.Error("No se pudo eliminar el item");
         }
     }
 

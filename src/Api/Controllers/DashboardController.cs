@@ -78,6 +78,7 @@ public class DashboardController : ControllerBase
             total = items.Count,
             inProgress = items.Count(x => x.status == "in_progress" || x.status == "running"),
             done = items.Count(x => x.status == "done"),
+            errors = items.Count(x => x.status == "error"),
             sources = sourceCounts,
             items
         });

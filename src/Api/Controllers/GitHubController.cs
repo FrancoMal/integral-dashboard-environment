@@ -820,6 +820,33 @@ public class GitHubController : ControllerBase
             return NotFound();
 
         item.Status = request.Status;
+
+        if (request.Status == "error")
+        {
+            item.ErrorMessage = request.ErrorMessage ?? "";
+            item.ErrorAt = DateTime.UtcNow;
+        }
+        else if (request.Status == "backlog")
+        {
+            // When retrying (moving back to backlog), clear error info
+            item.ErrorMessage = "";
+            item.ErrorAt = null;
+        }
+
+        await _db.SaveChangesAsync();
+        return NoContent();
+    }
+
+    [HttpDelete("projects/{id}/workitems/{itemId}")]
+    public async Task<IActionResult> DeleteWorkItem(int id, int itemId)
+    {
+        var item = await _db.ProjectWorkItems
+            .FirstOrDefaultAsync(w => w.ProjectId == id && w.Id == itemId);
+
+        if (item == null)
+            return NotFound();
+
+        _db.ProjectWorkItems.Remove(item);
         await _db.SaveChangesAsync();
         return NoContent();
     }
@@ -970,6 +997,7 @@ public class FeatureBacklogRequest
 public class UpdateStatusRequest
 {
     public string Status { get; set; } = "backlog";
+    public string? ErrorMessage { get; set; }
 }
 
 public class CreateCustomFeatureRequest
