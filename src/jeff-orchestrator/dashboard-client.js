@@ -36,10 +36,12 @@ export class DashboardClient {
     return await this.#get(`/api/github/projects/${projectId}/detail`);
   }
 
-  async updateWorkItemStatus(projectId, workItemId, newStatus) {
+  async updateWorkItemStatus(projectId, workItemId, newStatus, errorMessage = null) {
+    const body = { status: newStatus };
+    if (errorMessage) body.errorMessage = errorMessage;
     return await this.#post(
       `/api/github/projects/${projectId}/workitems/${workItemId}/status`,
-      { status: newStatus }
+      body
     );
   }
 

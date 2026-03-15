@@ -33,7 +33,6 @@ const dashboard = new DashboardClient(
 let isWorking = false;
 let currentWorkItem = null; // Track current item for graceful shutdown
 let currentProjectId = null;
-const failCounts = new Map(); // workItemId → number of failures
 
 // ── Heartbeat ──────────────────────────────────────────
 
@@ -83,12 +82,7 @@ async function tick() {
 
       console.log(`[${project.name}] ${backlogItems.length} item(s) in backlog`);
 
-      // Skip items that have failed recently (tracked by failCounts)
-      const item = backlogItems.find(i => (failCounts.get(i.id) || 0) < 2) || null;
-      if (!item) {
-        console.log(`[${project.name}] All backlog items have failed, skipping`);
-        continue;
-      }
+      const item = backlogItems[0];
       console.log(`[${project.name}] → "${item.title}"`);
 
       await processWorkItem(project, detail, item);
@@ -204,33 +198,46 @@ async function processWorkItem(project, detail, item) {
       await heartbeat({ outputAppend: "\n\n✅ Tarea completada\n" });
       console.log(`[${project.name}] ✓ Done: "${item.title}"`);
     } else {
-      // ── Failed ──
+      // ── Failed — mark as error with details ──
+      const errorMsg = (result.error || "Error desconocido").slice(0, 500);
+
+      await dashboard.updateWorkItemStatus(project.id, item.id, "error", errorMsg);
+
       await dashboard.logActivity({
         projectId: project.id,
         projectName: project.name,
         action: "execute_error",
         title: `Error en: ${item.title}`,
-        detail: (result.error || "").slice(0, 500),
+        detail: errorMsg,
         source: "orquestador",
-        status: "done",
+        status: "error",
       });
 
-      // Track failure count
-      const fails = (failCounts.get(item.id) || 0) + 1;
-      failCounts.set(item.id, fails);
-
-      if (fails >= 2) {
-        // Too many failures, mark as done with error note
-        await dashboard.updateWorkItemStatus(project.id, item.id, "done");
-        await heartbeat({ outputAppend: `\n⚠️ Marcado como completado tras ${fails} intentos fallidos\n` });
-      }
-
-      await heartbeat({ outputAppend: `\n\n❌ Error: ${(result.error || "").slice(0, 200)}\n` });
-      console.error(`[${project.name}] ✗ Failed: "${item.title}" — ${result.error?.slice(0, 300)}`);
+      await heartbeat({ outputAppend: `\n\n❌ Error: ${errorMsg.slice(0, 200)}\n` });
+      console.error(`[${project.name}] ✗ Failed: "${item.title}" — ${errorMsg.slice(0, 300)}`);
     }
   } catch (err) {
     console.error(`[${project.name}] Error: ${err.message}\n${err.stack}`);
     await heartbeat({ outputAppend: `\n\n❌ Error interno: ${err.message}\n` });
+
+    // Mark the item as error so it doesn't stay stuck in "in_progress"
+    if (item) {
+      const errorMsg = `Error interno: ${err.message}`.slice(0, 500);
+      try {
+        await dashboard.updateWorkItemStatus(project.id, item.id, "error", errorMsg);
+        await dashboard.logActivity({
+          projectId: project.id,
+          projectName: project.name,
+          action: "execute_error",
+          title: `Error en: ${item.title}`,
+          detail: errorMsg,
+          source: "orquestador",
+          status: "error",
+        });
+      } catch (innerErr) {
+        console.error(`[${project.name}] Could not mark item as error: ${innerErr.message}`);
+      }
+    }
   } finally {
     isWorking = false;
     currentWorkItem = null;
@@ -361,22 +368,23 @@ async function main() {
 async function gracefulShutdown(signal) {
   console.log(`\n[shutdown] ${signal} received`);
 
-  // Return current work item to backlog if interrupted
+  // Mark current work item as error if interrupted mid-execution
   if (currentWorkItem && currentProjectId) {
-    console.log(`[shutdown] Returning "${currentWorkItem.title}" to backlog`);
+    const errorMsg = `Orquestador interrumpido (${signal}). La tarea no se completo.`;
+    console.log(`[shutdown] Marking "${currentWorkItem.title}" as error`);
     try {
-      await dashboard.updateWorkItemStatus(currentProjectId, currentWorkItem.id, "backlog");
+      await dashboard.updateWorkItemStatus(currentProjectId, currentWorkItem.id, "error", errorMsg);
       await dashboard.logActivity({
         projectId: currentProjectId,
         projectName: "",
         action: "interrupted",
         title: `Interrumpido: ${currentWorkItem.title}`,
-        detail: `El orquestador fue detenido (${signal}). Tarea devuelta al backlog.`,
+        detail: errorMsg,
         source: "orquestador",
-        status: "done",
+        status: "error",
       });
     } catch (err) {
-      console.error(`[shutdown] Could not reset item: ${err.message}`);
+      console.error(`[shutdown] Could not mark item as error: ${err.message}`);
     }
   }
 
